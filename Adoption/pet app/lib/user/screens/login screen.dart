@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/user/screens/home.dart';
 import 'reg.dart'; // Import your SignUpPage
 
 class LoginPage extends StatefulWidget {
@@ -95,6 +96,10 @@ class _LoginPageState extends State<LoginPage> {
                     String email = _emailController.text;
                     String password = _passwordController.text;
                     print('Sign in with email: $email, password: $password');
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const HomePage()));
                   }
                 },
                 style: ElevatedButton.styleFrom(
