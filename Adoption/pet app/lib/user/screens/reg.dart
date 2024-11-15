@@ -1,5 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/user/screens/login%20screen.dart';
+import 'login screen.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -9,62 +10,43 @@ class SignUpPage extends StatefulWidget {
 }
 
 class _SignUpPageState extends State<SignUpPage> {
+  final _formKey = GlobalKey<FormState>();
+
   // Create controllers for the text fields
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _userNameController = TextEditingController();
   final TextEditingController _confirmController = TextEditingController();
-
-  // GlobalKey for form validation
-  final _formKey = GlobalKey<FormState>();
-
   bool visible1 = true;
   bool visible2 = true;
-
-  void SignUpHandler() {
-    // If form is valid, you can process the sign-up logic
-    if (_formKey.currentState!.validate()) {
-      Navigator.push(context, MaterialPageRoute(
-        builder: (context) {
-          return MyLoginScreen();
-        },
-      ));
-      String email = _emailController.text;
-      String password = _passwordController.text;
-      String username = _userNameController.text;
-      print(
-          'Sign Up with Username: $username, Email: $email, Password: $password');
-      // Call your sign-up logic here, e.g., API call
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sign Up'),
         centerTitle: true,
+        title: const Text('Sign Up'),
       ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Form(
-            key: _formKey, // Key for the form to manage state
+            key: _formKey,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Centered Circle Avatar with the image
-                Center(
+                const Center(
                   child: CircleAvatar(
                     radius: 60, // Size of the avatar
                     backgroundImage:
-                        AssetImage('asset/image/logo-png.png'), // Correct path
+                        AssetImage('asset/image/im.jpg'), // Correct path
                   ),
                 ),
                 const SizedBox(height: 20), // Space between image and form
 
-                // UserName Field with validation
+                // Username Field
                 TextFormField(
                   controller: _userNameController,
                   decoration: const InputDecoration(
@@ -75,14 +57,14 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your username';
+                      return 'Please enter a username';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 20),
 
-                // Email Field with validation
+                // Email Field
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -95,70 +77,69 @@ class _SignUpPageState extends State<SignUpPage> {
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter an email';
-                    }
-                    if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
+                    } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
+                        .hasMatch(value)) {
                       return 'Please enter a valid email address';
                     }
                     return null;
                   },
                 ),
-                const SizedBox(height: 16), // Space between fields
-
-                // Password Field with validation
+                const SizedBox(height: 16),
+                // Password Field
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: visible1,
                   decoration: InputDecoration(
                     labelText: 'Password',
                     hintText: 'Enter your password',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock),
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       onPressed: () {
                         setState(() {
-                          visible1 = !visible1;
+                          visible1 = !visible1; // Toggle visibility
                         });
                       },
                       icon: Icon(
-                          visible1 ? Icons.visibility : Icons.visibility_off),
+                        visible1 ? Icons.visibility : Icons.visibility_off,
+                      ),
                     ),
                   ),
+                  obscureText: visible1,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter a password';
-                    }
-                    if (value.length < 6) {
+                    } else if (value.length < 6) {
                       return 'Password must be at least 6 characters';
                     }
                     return null;
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 20), // Space between fields and button
 
-                // Confirm Password Field with validation
+                // Confirm Password Field
                 TextFormField(
                   controller: _confirmController,
-                  obscureText: visible2,
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
                     hintText: 'Confirm password',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.password),
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.password),
                     suffixIcon: IconButton(
                       onPressed: () {
                         setState(() {
-                          visible2 = !visible2;
+                          visible2 = !visible2; // Toggle visibility
                         });
                       },
                       icon: Icon(
-                          visible2 ? Icons.visibility : Icons.visibility_off),
+                        visible2 ? Icons.visibility : Icons.visibility_off,
+                      ),
                     ),
                   ),
+                  obscureText: visible2,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please confirm your password';
-                    }
-                    if (value != _passwordController.text) {
+                    } else if (value != _passwordController.text) {
                       return 'Passwords do not match';
                     }
                     return null;
@@ -166,13 +147,55 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
                 const SizedBox(height: 20),
 
-                // Sign Up Button
                 ElevatedButton(
-                  onPressed: SignUpHandler,
-                  child: const Text('Sign Up'),
+                  onPressed: () {
+                    // Validate the form fields
+                    if (_formKey.currentState!.validate()) {
+                      String email = _emailController.text;
+                      String password = _passwordController.text;
+                      print('Sign up with email: $email, password: $password');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Sign Up Successful'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
+                    shadowColor: Colors.red,
                     padding: const EdgeInsets.symmetric(
                         vertical: 12, horizontal: 32),
+                  ),
+                  child: const Text('Sign Up'),
+                ),
+                const SizedBox(height: 16),
+                // "Already have an account?" text link
+                RichText(
+                  text: TextSpan(
+                    text: 'Already have an account? ',
+                    style: const TextStyle(
+                      color: Colors.black, // Style for the non-clickable part
+                      fontSize: 16,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'Login',
+                        style: const TextStyle(
+                          color: Colors.blue, // Style for the clickable part
+                          decoration: TextDecoration.underline,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            // Navigate to login page
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const LoginPage()),
+                            );
+                          },
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -183,3 +206,4 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 }
+ // Space between fields
