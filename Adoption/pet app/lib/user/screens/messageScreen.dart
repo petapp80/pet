@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'chatDetailScreen.dart'; // Import the ChatDetailScreen
 
 class Messagescreen extends StatefulWidget {
   const Messagescreen({super.key});
@@ -55,6 +56,16 @@ class _MessagescreenState extends State<Messagescreen> {
     });
   }
 
+  // Simulate a refresh action
+  Future<void> _refreshMessages() async {
+    // Simulate a delay for refreshing data
+    await Future.delayed(const Duration(seconds: 2));
+    setState(() {
+      // Optionally, shuffle messages to simulate new data
+      _filteredMessages = List.from(_messages)..shuffle();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -81,32 +92,47 @@ class _MessagescreenState extends State<Messagescreen> {
             ),
             const SizedBox(height: 20),
 
-            // List of message boxes
+            // List of message boxes with pull-to-refresh
             Expanded(
-              child: ListView.builder(
-                itemCount: _filteredMessages.length,
-                itemBuilder: (context, index) {
-                  final message = _filteredMessages[index];
+              child: RefreshIndicator(
+                onRefresh: _refreshMessages, // Trigger refresh
+                child: ListView.builder(
+                  itemCount: _filteredMessages.length,
+                  itemBuilder: (context, index) {
+                    final message = _filteredMessages[index];
 
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(12.0),
-                      leading: CircleAvatar(
-                        backgroundImage: AssetImage(message["image"]!),
-                        radius: 30,
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 8.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      title: Text(
-                        message["name"]!,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(12.0),
+                        leading: CircleAvatar(
+                          backgroundImage: AssetImage(message["image"]!),
+                          radius: 30,
+                        ),
+                        title: Text(
+                          message["name"]!,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(message["message"]!),
+                        onTap: () {
+                          // Navigate to the chat detail screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChatDetailScreen(
+                                name: message["name"]!,
+                                image: message["image"]!,
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      subtitle: Text(message["message"]!),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
           ],

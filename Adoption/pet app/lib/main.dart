@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '/user/screens/reg.dart';
+import 'package:flutter_application_1/user/screens/home.dart';
 
 void main() {
   runApp(
     const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: SignUpPage(),
+      home: HomePage(),
     ),
   );
 }

@@ -96,10 +96,11 @@ class _LoginPageState extends State<LoginPage> {
                     String email = _emailController.text;
                     String password = _passwordController.text;
                     print('Sign in with email: $email, password: $password');
-                    Navigator.push(
+                    Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const HomePage()));
+                            builder: (context) => const HomePage()),
+                        (route) => false);
                   }
                 },
                 style: ElevatedButton.styleFrom(
