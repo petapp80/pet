@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/home.dart';
+import 'adminScreen.dart'; // Import your AdminPage
 import 'reg.dart'; // Import your SignUpPage
 
 class LoginPage extends StatefulWidget {
@@ -20,7 +21,6 @@ class _LoginPageState extends State<LoginPage> {
     if (value == null || value.isEmpty) {
       return 'Email is required';
     }
-    // Basic email format validation
     const emailPattern = r'^[^@]+@[^@]+\.[^@]+';
     final regExp = RegExp(emailPattern);
     if (!regExp.hasMatch(value)) {
@@ -88,19 +88,33 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 20),
 
-              // Sign In Button with validation check
+              // Sign In Button with credential check
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState?.validate() == true) {
-                    // Proceed with sign-in if validation passes
-                    String email = _emailController.text;
+                    String email = _emailController.text.trim();
                     String password = _passwordController.text;
-                    print('Sign in with email: $email, password: $password');
-                    Navigator.pushAndRemoveUntil(
+
+                    // Check for specific credentials
+                    if (email == 'petapp90@gmail.com' && password == '1') {
+                      // Redirect to AdminPage if credentials match
+                      Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const HomePage()),
-                        (route) => false);
+                          builder: (context) => const AdminPage(),
+                        ),
+                        (route) => false,
+                      );
+                    } else {
+                      // Redirect to HomePage for all other credentials
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HomePage(),
+                        ),
+                        (route) => false,
+                      );
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(

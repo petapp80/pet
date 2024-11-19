@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/user/screens/chatDetailScreen.dart';
+
 import 'profile.dart';
 import 'cartScreen.dart';
 import 'messageScreen.dart';
@@ -12,7 +14,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _selectedIndex = 2;
   DateTime? lastBackPressed;
 
@@ -21,22 +23,34 @@ class _HomePageState extends State<HomePage> {
     {
       "image": "asset/image/dog1.png",
       "text": "Suggestion 1",
-      "description": "This is a description for Suggestion 1."
+      "description": "This is a description for Suggestion 1.",
+      "location": "Location 1",
+      "published": "2 days ago",
+      "profileName": "John Doe"
     },
     {
       "image": "asset/image/dog2.png",
       "text": "Suggestion 2",
-      "description": "This is a description for Suggestion 2."
+      "description": "This is a description for Suggestion 2.",
+      "location": "Location 2",
+      "published": "1 week ago",
+      "profileName": "Jane Smith"
     },
     {
       "image": "asset/image/dog1.png",
       "text": "Suggestion 3",
-      "description": "This is a description for Suggestion 3."
+      "description": "This is a description for Suggestion 3.",
+      "location": "Location 3",
+      "published": "1 month ago",
+      "profileName": "Alice Brown"
     },
     {
       "image": "asset/image/dog1.png",
       "text": "Suggestion 4",
-      "description": "This is a description for Suggestion 4."
+      "description": "This is a description for Suggestion 4.",
+      "location": "Location 4",
+      "published": "3 months ago",
+      "profileName": "Bob Johnson"
     },
   ];
 
@@ -56,7 +70,6 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
-  // Home screen with cart functionality
   Widget _buildHomeScreen() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -76,14 +89,36 @@ class _HomePageState extends State<HomePage> {
                 itemCount: _suggestions.length,
                 itemBuilder: (context, index) {
                   final suggestion = _suggestions[index];
+                  final isSpecial =
+                      index == 2; // Explicitly mark the 3rd suggestion
+
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
+                    color: isSpecial ? Colors.lightBlue.shade50 : Colors.white,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (isSpecial) ...[
+                          Container(
+                            padding: const EdgeInsets.all(8.0),
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Verified Organization',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                         ClipRRect(
                           borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(8),
@@ -122,47 +157,109 @@ class _HomePageState extends State<HomePage> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              IconButton(
-                                onPressed: () {
-                                  // Call the placeholder method for adding item to cart
-                                  addItemToCart(suggestion);
-
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                          '${suggestion["text"]} added to cart'),
-                                      duration: const Duration(seconds: 1),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.shopping_cart_outlined),
-                                color: Colors.green,
+                              // Circular Avatar and Name aligned to the start
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 16,
+                                    backgroundImage:
+                                        AssetImage(suggestion["image"]!),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    suggestion["profileName"]!,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                               ),
-                              IconButton(
-                                onPressed: () {
-                                  final shareText =
-                                      '${suggestion["text"]}\n\n${suggestion["description"]}';
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Share'),
-                                      content:
-                                          Text('You are sharing: \n$shareText'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                          child: const Text('Close'),
+                              const Spacer(),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                              builder: (context) =>
+                                                  ChatDetailScreen(
+                                                      name: suggestion[
+                                                          "profileName"]!,
+                                                      image: suggestion[
+                                                          "image"]!)));
+                                    },
+                                    icon: const Icon(Icons.message_outlined),
+                                    color: Colors.orange,
+                                  ),
+                                  IconButton(
+                                    onPressed: () {
+                                      addItemToCart(suggestion);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              '${suggestion["text"]} added to cart'),
+                                          duration: const Duration(seconds: 1),
                                         ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.share_outlined),
-                                color: Colors.blue,
+                                      );
+                                    },
+                                    icon: const Icon(
+                                        Icons.shopping_cart_outlined),
+                                    color: Colors.green,
+                                  ),
+                                  IconButton(
+                                    onPressed: () {
+                                      final shareText =
+                                          '${suggestion["text"]}\n\n${suggestion["description"]}';
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Share'),
+                                          content: Text(
+                                              'You are sharing: \n$shareText'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.pop(context);
+                                              },
+                                              child: const Text('Close'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.share_outlined),
+                                    color: Colors.blue,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          child: Text(
+                            'Published: ${suggestion["published"]!}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(left: 12.0, bottom: 12.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.location_on, color: Colors.red),
+                              const SizedBox(width: 4),
+                              Text(
+                                suggestion["location"]!,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                ),
                               ),
                             ],
                           ),
@@ -179,21 +276,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Placeholder method for adding item to cart (to be updated later)
   void addItemToCart(Map<String, String> item) {
-    // Placeholder implementation: this is where you can later integrate backend logic.
     print('Item added to cart: ${item["text"]}');
   }
 
-  // Refresh function: to be triggered on pull-to-refresh
   Future<void> _handleRefresh() async {
-    // Simulate network delay (you can replace this with real data fetching)
     await Future.delayed(const Duration(seconds: 2));
-
     setState(() {
-      // For now, we will just print a message
       print("Refreshed");
-      // You can update the _suggestions list here or fetch new data
     });
   }
 
@@ -214,21 +304,20 @@ class _HomePageState extends State<HomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Press back again to exit'),
-          duration: Duration(seconds: 2), // Visible for 2 seconds
+          duration: Duration(seconds: 2),
         ),
       );
-      return false; // Prevent exiting the app
+      return false;
     }
 
-    // Reset `lastBackPressed` to null to enforce the double-back press rule every time
     lastBackPressed = null;
-    return true; // Allow exiting the app
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: _onWillPop, // Intercept the back button press
+      onWillPop: _onWillPop,
       child: Scaffold(
         body: IndexedStack(
           index: _selectedIndex,
@@ -255,7 +344,7 @@ class _HomePageState extends State<HomePage> {
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.shopping_cart),
-              label: 'My Cart',
+              label: 'Cart',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person),
@@ -265,14 +354,14 @@ class _HomePageState extends State<HomePage> {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () {
-            // Navigate to AddScreen
+            // Navigate to AddScreen when the button is pressed
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const AddScreen()),
             );
           },
-          child: const Icon(Icons.add),
           backgroundColor: Colors.blue,
+          child: const Icon(Icons.add),
         ),
       ),
     );

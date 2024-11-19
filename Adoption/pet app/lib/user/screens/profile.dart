@@ -123,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       // Open Feedback Dialog
                       showDialog(
                         context: context,
-                        builder: (context) => FeedbackDialog(),
+                        builder: (context) => const FeedbackDialog(),
                       );
                     },
                   ),
@@ -327,14 +327,16 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
           children: [
             const Text('Rate our app:'),
             const SizedBox(height: 10),
-            // Rating Stars
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            // Wrap used to prevent overflow issues and align stars properly
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 4.0, // Adjusted space between the stars
               children: List.generate(5, (index) {
                 return IconButton(
                   icon: Icon(
                     index < _rating ? Icons.star : Icons.star_border,
                     color: Colors.orange,
+                    size: 30, // Adjusted icon size for better fitting
                   ),
                   onPressed: () {
                     setState(() {
