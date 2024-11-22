@@ -104,9 +104,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         if (isSpecial) ...[
                           Container(
                             padding: const EdgeInsets.all(8.0),
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: Colors.blue,
-                              borderRadius: const BorderRadius.vertical(
+                              borderRadius: BorderRadius.vertical(
                                 top: Radius.circular(8),
                               ),
                             ),

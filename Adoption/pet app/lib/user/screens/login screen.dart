@@ -96,7 +96,7 @@ class _LoginPageState extends State<LoginPage> {
                     String password = _passwordController.text;
 
                     // Check for specific credentials
-                    if (email == 'petapp90@gmail.com' && password == '1') {
+                    if (email == 'p@gmail.com' && password == '1') {
                       // Redirect to AdminPage if credentials match
                       Navigator.pushAndRemoveUntil(
                         context,

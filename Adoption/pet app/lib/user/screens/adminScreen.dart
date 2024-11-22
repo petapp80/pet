@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'newlyRegistered.dart';
+import 'notificationScreen.dart'; // Import the Notification page
+import 'salesScreen.dart'; // Import other pages as needed
+import 'feedbackScreen.dart'; // Import other pages as needed
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -26,7 +30,7 @@ class _AdminPageState extends State<AdminPage> {
           ),
           itemCount: 6, // Total number of boxes
           itemBuilder: (context, index) {
-            // List of labels for the boxes
+            // List of titles for the boxes
             final titles = [
               'Newly Registered',
               'Sales',
@@ -36,6 +40,16 @@ class _AdminPageState extends State<AdminPage> {
               'Give Update'
             ];
 
+            // List of corresponding pages to navigate to
+            final pages = [
+              NewlyRegistered(), // Newly Registered, no page
+              SalesScreen(), // Sales page
+              Feedbackscreen(),
+              null, // User Search, no page for now
+              NotificationScreen(), // Notification page
+              null, // Give Update, no page for now
+            ];
+
             return Card(
               elevation: 4,
               shape: RoundedRectangleBorder(
@@ -43,8 +57,16 @@ class _AdminPageState extends State<AdminPage> {
               ),
               child: InkWell(
                 onTap: () {
-                  // Add functionality for when each box is tapped
-                  print('${titles[index]} clicked');
+                  // If a page is specified for the tile, navigate to it
+                  if (pages[index] != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => pages[index]!),
+                    );
+                  } else {
+                    // Show a message if no page is set for the tile
+                    print('${titles[index]} clicked, but no page assigned.');
+                  }
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
