@@ -13,22 +13,22 @@ class _SalesScreenState extends State<SalesScreen> {
     {
       'petName': 'Bulldog',
       'salesAmount': 100,
-      'date': DateTime.now().subtract(Duration(days: 1))
+      'date': DateTime.now().subtract(const Duration(days: 1))
     },
     {
       'petName': 'Labrador',
       'salesAmount': 150,
-      'date': DateTime.now().subtract(Duration(days: 2))
+      'date': DateTime.now().subtract(const Duration(days: 2))
     },
     {
       'petName': 'Poodle',
       'salesAmount': 200,
-      'date': DateTime.now().subtract(Duration(days: 7))
+      'date': DateTime.now().subtract(const Duration(days: 7))
     },
     {
       'petName': 'German Shepherd',
       'salesAmount': 250,
-      'date': DateTime.now().subtract(Duration(days: 15))
+      'date': DateTime.now().subtract(const Duration(days: 15))
     },
     // More data...
   ];
@@ -189,7 +189,7 @@ class SalesChartPainter extends CustomPainter {
       TextPainter textPainter = TextPainter(
         text: TextSpan(
           text: data[i]['petName'],
-          style: TextStyle(color: Colors.black, fontSize: 10),
+          style: const TextStyle(color: Colors.black, fontSize: 10),
         ),
         textDirection: TextDirection.ltr,
       )..layout(minWidth: 0, maxWidth: size.width);

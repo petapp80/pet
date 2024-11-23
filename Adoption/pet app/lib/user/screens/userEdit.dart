@@ -8,12 +8,12 @@ class UserEdit extends StatefulWidget {
   final Map<String, String>? petData; // Pet data to pre-fill if editing a pet
 
   const UserEdit({
-    Key? key,
+    super.key,
     required this.name,
     required this.description,
     required this.isUser,
     this.petData, // Optional pet data
-  }) : super(key: key);
+  });
 
   @override
   State<UserEdit> createState() => _UserEditState();

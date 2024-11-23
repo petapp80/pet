@@ -43,7 +43,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Notification')),
+      appBar: AppBar(title: const Text('Notification')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -62,22 +62,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     ),
                   ),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 // File upload button using FilePicker
                 IconButton(
-                  icon: Icon(Icons.attach_file),
+                  icon: const Icon(Icons.attach_file),
                   onPressed: _pickFile,
                 ),
               ],
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             // Send Button
             ElevatedButton(
               onPressed: _sendMessage,
-              child: Text('Send'),
               style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50),
+                minimumSize: const Size(double.infinity, 50),
               ),
+              child: const Text('Send'),
             ),
           ],
         ),

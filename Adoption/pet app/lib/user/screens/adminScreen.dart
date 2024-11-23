@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/user/screens/giveUpdate.dart';
 import 'newlyRegistered.dart';
 import 'notificationScreen.dart'; // Import the Notification page
 import 'salesScreen.dart'; // Import other pages as needed
-import 'feedbackScreen.dart'; // Import other pages as needed
+import 'feedbackScreen.dart';
+import 'userSearch.dart'; // Import other pages as needed
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -42,12 +44,12 @@ class _AdminPageState extends State<AdminPage> {
 
             // List of corresponding pages to navigate to
             final pages = [
-              NewlyRegistered(), // Newly Registered, no page
-              SalesScreen(), // Sales page
-              Feedbackscreen(),
-              null, // User Search, no page for now
-              NotificationScreen(), // Notification page
-              null, // Give Update, no page for now
+              const NewlyRegistered(), // Newly Registered, no page
+              const SalesScreen(), // Sales page
+              const Feedbackscreen(),
+              const UserSearch(), // User Search, no page for now
+              const NotificationScreen(), // Notification page
+              const GiveUpdate(), // Give Update, no page for now
             ];
 
             return Card(
@@ -58,15 +60,10 @@ class _AdminPageState extends State<AdminPage> {
               child: InkWell(
                 onTap: () {
                   // If a page is specified for the tile, navigate to it
-                  if (pages[index] != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => pages[index]!),
-                    );
-                  } else {
-                    // Show a message if no page is set for the tile
-                    print('${titles[index]} clicked, but no page assigned.');
-                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => pages[index]!),
+                  );
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -74,7 +71,7 @@ class _AdminPageState extends State<AdminPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.dashboard,
                         size: 40,
                         color: Colors.blue,

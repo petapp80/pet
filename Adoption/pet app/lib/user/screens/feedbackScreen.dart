@@ -145,8 +145,8 @@ class _FeedbackscreenState extends State<Feedbackscreen> {
                       data: ThemeData.light().copyWith(
                         primaryColor: Colors.blue,
                         hintColor: const Color.fromARGB(255, 32, 224, 102),
-                        buttonTheme:
-                            ButtonThemeData(textTheme: ButtonTextTheme.primary),
+                        buttonTheme: const ButtonThemeData(
+                            textTheme: ButtonTextTheme.primary),
                       ),
                       child: child!,
                     );
@@ -185,13 +185,13 @@ class _FeedbackscreenState extends State<Feedbackscreen> {
                           Text(feedback.feedbackText),
                           Text(
                             'Rating: ${feedback.rating} Stars',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           Text(
                             'Date: ${feedback.date.toLocal()}',
-                            style: TextStyle(color: Colors.grey),
+                            style: const TextStyle(color: Colors.grey),
                           ),
                         ],
                       ),
