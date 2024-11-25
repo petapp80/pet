@@ -34,10 +34,30 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
     {'name': 'Bella', 'description': 'A gentle cat with a calm temperament.'},
   ];
 
-  // Function to filter and search users or pets
+  // Mock data for newly added products
+  final List<Map<String, dynamic>> products = [
+    {'name': 'Dog Toy', 'description': 'A squeaky toy for playful puppies.'},
+    {'name': 'Cat Bed', 'description': 'A soft, cozy bed for your cat.'},
+    {'name': 'Pet Collar', 'description': 'Stylish and adjustable collar.'},
+    {'name': 'Fish Food', 'description': 'Nutritional feed for aquarium fish.'},
+  ];
+
+  // Function to filter and search users, pets, or products
   List<Map<String, dynamic>> get filteredItems {
-    List<Map<String, dynamic>> data =
-        selectedCategory == 'Users' ? users : pets;
+    List<Map<String, dynamic>> data;
+    switch (selectedCategory) {
+      case 'Users':
+        data = users;
+        break;
+      case 'Pets':
+        data = pets;
+        break;
+      case 'Products':
+        data = products;
+        break;
+      default:
+        data = [];
+    }
 
     // Apply search filtering
     if (searchQuery.isNotEmpty) {
@@ -70,9 +90,9 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
                     content: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _filterOption('All'),
                         _filterOption('Users'),
                         _filterOption('Pets'),
+                        _filterOption('Products'),
                       ],
                     ),
                   );
@@ -86,7 +106,7 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
         padding: const EdgeInsets.all(8.0),
         child: Column(
           children: [
-            // Category switch (Users / Pets)
+            // Category switch (Users / Pets / Products)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -105,6 +125,14 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
                     });
                   },
                   child: const Text('Pets'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedCategory = 'Products';
+                    });
+                  },
+                  child: const Text('Products'),
                 ),
               ],
             ),
@@ -127,7 +155,7 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
             ),
             const SizedBox(height: 10),
 
-            // Display filtered user or pet list
+            // Display filtered user, pet, or product list
             Expanded(
               child: filteredItems.isEmpty
                   ? const Center(child: Text('No items found.'))
@@ -149,8 +177,7 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
                                     name: item['name'] ?? 'No name',
                                     description:
                                         item['description'] ?? 'No description',
-                                    isUser: selectedCategory ==
-                                        'Users', // Passing the isUser flag
+                                    isUser: selectedCategory == 'Users',
                                   ),
                                 ),
                               );
@@ -172,11 +199,7 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
       title: Text(option),
       onTap: () {
         setState(() {
-          if (option == 'All') {
-            selectedCategory = 'Users';
-          } else {
-            selectedCategory = option;
-          }
+          selectedCategory = option;
         });
         Navigator.of(context).pop();
       },

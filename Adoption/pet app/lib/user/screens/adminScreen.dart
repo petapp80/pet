@@ -62,7 +62,7 @@ class _AdminPageState extends State<AdminPage> {
                   // If a page is specified for the tile, navigate to it
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => pages[index]!),
+                    MaterialPageRoute(builder: (context) => pages[index]),
                   );
                 },
                 child: Padding(

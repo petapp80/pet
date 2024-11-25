@@ -31,19 +31,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       // Get the file path
       String? filePath = result.files.single.path;
 
-      if (filePath != null) {
-        setState(() {
-          _filePath = filePath;
-        });
+      setState(() {
+        _filePath = filePath;
+      });
 
-        // Show snack bar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Selected file: ${filePath.split('/').last}'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
+      // Show snack bar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selected file: ${filePath?.split('/').last}'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
     } else {
       // User canceled the picker
       ScaffoldMessenger.of(context).showSnackBar(

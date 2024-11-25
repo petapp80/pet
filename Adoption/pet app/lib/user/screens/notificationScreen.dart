@@ -20,11 +20,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
     if (result != null) {
       // Get the file path
       String? filePath = result.files.single.path;
-      if (filePath != null) {
-        // Handle the selected file (e.g., display it, upload it, etc.)
-        print('Selected File: $filePath');
-      }
-    } else {
+      // Handle the selected file (e.g., display it, upload it, etc.)
+      print('Selected File: $filePath');
+        } else {
       // User canceled the picker
       print('No file selected');
     }
