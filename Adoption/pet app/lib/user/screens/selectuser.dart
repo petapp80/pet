@@ -23,7 +23,7 @@ class _SelectUserState extends State<SelectUser> {
     } else if (purpose == 'Products') {
       Navigator.pushReplacement(context,
           MaterialPageRoute(builder: (context) => const ProductsScreen()));
-    } else if (purpose == 'veterinary') {
+    } else if (purpose == 'Veterinary') {
       Navigator.pushReplacement(context,
           MaterialPageRoute(builder: (context) => const VeterinaryScreen()));
     } else {
