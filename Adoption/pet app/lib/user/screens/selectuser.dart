@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/user/screens/productScreen.dart';
+import 'package:flutter_application_1/user/screens/veterinary.dart';
 
 // Assuming you have a HomePage widget defined somewhere in your project
 import 'home.dart'; // Import your HomePage
@@ -18,6 +20,12 @@ class _SelectUserState extends State<SelectUser> {
         context,
         MaterialPageRoute(builder: (context) => const HomePage()),
       );
+    } else if (purpose == 'Products') {
+      Navigator.pushReplacement(context,
+          MaterialPageRoute(builder: (context) => const ProductsScreen()));
+    } else if (purpose == 'veterinary') {
+      Navigator.pushReplacement(context,
+          MaterialPageRoute(builder: (context) => const VeterinaryScreen()));
     } else {
       // Handle other purposes if needed
       ScaffoldMessenger.of(context).showSnackBar(
