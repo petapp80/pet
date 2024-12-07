@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/login%20screen.dart';
 import 'package:flutter_application_1/user/screens/productScreen.dart';
+import 'package:flutter_application_1/user/screens/profile.dart';
 import 'package:flutter_application_1/user/screens/reg.dart';
 import 'package:flutter_application_1/user/screens/selectUser.dart';
 import 'package:flutter_application_1/user/screens/splashScreen.dart';
@@ -19,9 +20,9 @@ void main() async {
 
   // Run the app
   runApp(
-    MaterialApp(
+    const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: SplashScreen(),
+      home: LoginPage(),
     ),
   );
 }

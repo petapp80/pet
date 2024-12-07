@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/login%20screen.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:lottie/lottie.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,134 +23,171 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 40),
-            // Profile Icon
-            CircleAvatar(
-              radius: 60,
-              backgroundImage: _profileImagePath != null
-                  ? FileImage(File(_profileImagePath!))
-                  : const AssetImage('asset/image/dog1.png') as ImageProvider,
-            ),
-            const SizedBox(height: 20),
-            // Username
-            Text(
-              _name,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 5),
-            // Email
-            Text(
-              _email,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 30),
-            // Options Box
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.shade300,
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  ProfileOption(
-                    icon: Icons.edit,
-                    title: 'Edit Profile',
-                    onTap: () {
-                      // Open Edit Profile Dialog
-                      showDialog(
-                        context: context,
-                        builder: (context) => EditProfileDialog(
-                          name: _name,
-                          email: _email,
-                          profileImagePath: _profileImagePath,
-                          onSave: (newName, newEmail, newPassword,
-                              newProfileImagePath) {
-                            setState(() {
-                              _name = newName;
-                              _email = newEmail;
-                              _password = newPassword;
-                              _profileImagePath = newProfileImagePath;
-                            });
-                            Navigator.pop(context); // Close dialog
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                  const Divider(),
-                  ProfileOption(
-                    icon: Icons.settings,
-                    title: 'Settings',
-                    onTap: () {
-                      // Handle Settings Tap
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Settings clicked')),
-                      );
-                    },
-                  ),
-                  const Divider(),
-                  ProfileOption(
-                    icon: Icons.support_agent,
-                    title: 'Support',
-                    onTap: () {
-                      // Handle Support Tap
-                    },
-                  ),
-                  const Divider(),
-                  ProfileOption(
-                    icon: Icons.feedback_outlined,
-                    title: 'Feedback',
-                    onTap: () {
-                      // Open Feedback Dialog
-                      showDialog(
-                        context: context,
-                        builder: (context) => const FeedbackDialog(),
-                      );
-                    },
-                  ),
-                  const Divider(),
-                  ProfileOption(
-                    icon: Icons.logout,
-                    title: 'Logout',
-                    onTap: () {
-                      // Handle Logout and navigate to Login page, remove all routes
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const LoginPage()),
-                        (route) => false, // This removes all previous routes
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+        appBar: AppBar(
+          title: const Text('Profile'),
+          centerTitle: true,
         ),
-      ),
-    );
+        body: StreamBuilder(
+          stream: FirebaseFirestore.instance
+              .collection('user')
+              .doc(FirebaseAuth.instance.currentUser?.uid)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                color: Colors.black.withOpacity(0.6), // Dark overlay
+                child: Center(
+                  child: Image.asset(
+                    'asset/image/loading.json', // Replace with your GIF path
+                    width: 150, // Increased width
+                    height: 150, // Increased height
+                  ),
+                ),
+              );
+            } else if (snapshot.hasError) {
+              return Container(
+                color: Colors.black.withOpacity(0.6), // Dark overlay
+                child: Center(
+                  child: SizedBox(
+                    width: 150,
+                    height: 150,
+                    child: Lottie.asset(
+                        'asset/image/error.json'), // Replace with your Lottie JSON file path
+                  ),
+                ),
+              );
+            } else {
+              final ProfileData = snapshot.data?.data();
+              print(ProfileData);
+              return SingleChildScrollView(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 40),
+                    // Profile Icon
+                    CircleAvatar(
+                      radius: 60,
+                      backgroundImage: _profileImagePath != null
+                          ? FileImage(File(_profileImagePath!))
+                          : const AssetImage('asset/image/dog1.png')
+                              as ImageProvider,
+                    ),
+                    const SizedBox(height: 20),
+                    // Username
+                    Text(
+                      ProfileData!['name'],
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    // Email
+                    Text(
+                      ProfileData!['email'],
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                    // Options Box
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.shade300,
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          ProfileOption(
+                            icon: Icons.edit,
+                            title: 'Edit Profile',
+                            onTap: () {
+                              // Open Edit Profile Dialog
+                              showDialog(
+                                context: context,
+                                builder: (context) => EditProfileDialog(
+                                  name: _name,
+                                  email: _email,
+                                  profileImagePath: _profileImagePath,
+                                  onSave: (newName, newEmail, newPassword,
+                                      newProfileImagePath) {
+                                    setState(() {
+                                      _name = newName;
+                                      _email = newEmail;
+                                      _password = newPassword;
+                                      _profileImagePath = newProfileImagePath;
+                                    });
+                                    Navigator.pop(context); // Close dialog
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                          const Divider(),
+                          ProfileOption(
+                            icon: Icons.settings,
+                            title: 'Settings',
+                            onTap: () {
+                              // Handle Settings Tap
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Settings clicked')),
+                              );
+                            },
+                          ),
+                          const Divider(),
+                          ProfileOption(
+                            icon: Icons.support_agent,
+                            title: 'Support',
+                            onTap: () {
+                              // Handle Support Tap
+                            },
+                          ),
+                          const Divider(),
+                          ProfileOption(
+                            icon: Icons.feedback_outlined,
+                            title: 'Feedback',
+                            onTap: () {
+                              // Open Feedback Dialog
+                              showDialog(
+                                context: context,
+                                builder: (context) => const FeedbackDialog(),
+                              );
+                            },
+                          ),
+                          const Divider(),
+                          ProfileOption(
+                            icon: Icons.logout,
+                            title: 'Logout',
+                            onTap: () {
+                              // Handle Logout and navigate to Login page, remove all routes
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const LoginPage()),
+                                (route) =>
+                                    false, // This removes all previous routes
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          },
+        ));
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/services/Buyer_auth_service.dart';
+import 'package:lottie/lottie.dart';
 import 'login screen.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -20,6 +21,41 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _confirmController = TextEditingController();
   bool visible1 = true;
   bool visible2 = true;
+  bool loading = false; // Added loading state
+
+  void signUpHandler() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        loading = true; // Show loading overlay
+      });
+
+      try {
+        await BuyerAuthService().userregister(
+          context: context,
+          username: _userNameController.text,
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+
+        setState(() {
+          loading = false; // Hide loading overlay
+        });
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
+      } catch (error) {
+        setState(() {
+          loading = false; // Hide loading overlay
+        });
+        // Handle error (e.g., show a snackbar)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,31 +90,25 @@ class _SignUpPageState extends State<SignUpPage> {
                       'Sign Up',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: const Color.fromARGB(255, 120, 35, 35),
                           ),
                     ),
                   ),
                 ),
+                const SizedBox(
+                  height: 100,
+                ),
                 Expanded(
                   child: SingleChildScrollView(
                     child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 16),
                       child: Form(
                         key: _formKey,
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // Circle Avatar with image
-                            const Center(
-                              child: CircleAvatar(
-                                radius: 60,
-                                backgroundImage: AssetImage('asset/image/im.jpg'),
-                              ),
-                            ),
-                            const SizedBox(height: 30),
-
                             // Username Field
                             TextFormField(
                               controller: _userNameController,
@@ -194,24 +224,10 @@ class _SignUpPageState extends State<SignUpPage> {
                             const SizedBox(height: 30),
 
                             ElevatedButton(
-                              onPressed: () {
-                                if (_formKey.currentState!.validate()) {
-                                  String email = _emailController.text;
-                                  String password = _passwordController.text;
-                                  print(
-                                      'Sign up with email: $email, password: $password');
-
-                                  BuyerAuthService().userregister(
-                                    context: context,
-                                    username: _userNameController.text,
-                                    email: _emailController.text,
-                                    password: _passwordController.text,
-                                  );
-                                }
-                              },
+                              onPressed: signUpHandler, // Use handler
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color.fromARGB(
-                                    255, 255, 254, 253),
+                                backgroundColor:
+                                    const Color.fromARGB(255, 255, 254, 253),
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 14, horizontal: 36),
                                 shape: RoundedRectangleBorder(
@@ -263,6 +279,20 @@ class _SignUpPageState extends State<SignUpPage> {
               ],
             ),
           ),
+
+          // Loading Overlay
+          if (loading)
+            Container(
+              color: Colors.black.withOpacity(0.6), // Dark overlay
+              child: Center(
+                child: SizedBox(
+                  width: 350,
+                  height: 350,
+                  child: Lottie.asset(
+                      'asset/image/loading.json'), // Replace with your Lottie JSON file path
+                ),
+              ),
+            ),
         ],
       ),
     );

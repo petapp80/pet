@@ -1,6 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/user/screens/forgetScreen.dart';
 import 'package:flutter_application_1/user/screens/home.dart';
+import 'package:flutter_application_1/user/services/Buyer_auth_service.dart';
+import 'package:lottie/lottie.dart';
 import 'adminScreen.dart'; // Import your AdminPage
 import 'reg.dart'; // Import your SignUpPage
 
@@ -14,7 +17,10 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _otpController =
+      TextEditingController(); // OTP controller
   final _formKey = GlobalKey<FormState>();
+  bool loading = false;
 
   // Helper function to validate email format
   String? _validateEmail(String? value) {
@@ -35,6 +41,52 @@ class _LoginPageState extends State<LoginPage> {
       return 'Password is required';
     }
     return null;
+  }
+
+  // Helper function to validate OTP
+  String? _validateOtp(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'OTP is required';
+    } else if (value.length != 5) {
+      return 'OTP must be 5 digits';
+    }
+    return null;
+  }
+
+  void login_Handler() async {
+    if (_formKey.currentState?.validate() == true) {
+      setState(() {
+        loading = true;
+      });
+      String email = _emailController.text.trim();
+      String password = _passwordController.text;
+
+      // Check for specific credentials
+      if (email == 'p@gmail.com' && password == '1') {
+        // Redirect to AdminPage if credentials match
+        await Future.delayed(const Duration(seconds: 2)); // Simulate delay
+        setState(() {
+          loading = false;
+        });
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AdminPage(),
+          ),
+          (route) => false,
+        );
+      } else {
+        // Redirect to HomePage for all other credentials
+        await BuyerAuthService().userLogin(
+            context: context,
+            email: _emailController.text,
+            password: _passwordController.text);
+
+        setState(() {
+          loading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -70,11 +122,15 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       const Center(
                         child: CircleAvatar(
-                          backgroundImage: AssetImage('asset/image/im.jpg'),
+                          backgroundImage: AssetImage('asset/image/intro.gif'),
                           radius: 60,
                         ),
                       ),
                       const SizedBox(height: 30),
+
+                      // OTP TextField with 5 digit validation
+
+                      const SizedBox(height: 20),
 
                       // Email TextField with validation
                       TextFormField(
@@ -110,33 +166,7 @@ class _LoginPageState extends State<LoginPage> {
 
                       // Sign In Button with credential check
                       ElevatedButton(
-                        onPressed: () {
-                          if (_formKey.currentState?.validate() == true) {
-                            String email = _emailController.text.trim();
-                            String password = _passwordController.text;
-
-                            // Check for specific credentials
-                            if (email == 'p@gmail.com' && password == '1') {
-                              // Redirect to AdminPage if credentials match
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const AdminPage(),
-                                ),
-                                (route) => false,
-                              );
-                            } else {
-                              // Redirect to HomePage for all other credentials
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const HomePage(),
-                                ),
-                                (route) => false,
-                              );
-                            }
-                          }
-                        },
+                        onPressed: login_Handler,
                         style: ElevatedButton.styleFrom(
                           shadowColor: Colors.red,
                           padding: const EdgeInsets.symmetric(
@@ -151,6 +181,10 @@ class _LoginPageState extends State<LoginPage> {
                       // "Forgot Password?" Text
                       TextButton(
                         onPressed: () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const ForgetScreen()));
                           print('Forgot Password? clicked');
                         },
                         child: const Text(
@@ -196,6 +230,20 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
+
+          // Loading Overlay
+          if (loading)
+            Container(
+              color: Colors.black.withOpacity(0.6), // Dark overlay
+              child: Center(
+                child: SizedBox(
+                  width: 350,
+                  height: 350,
+                  child: Lottie.asset(
+                      'asset/image/loading.json'), // Replace with your Lottie JSON file path
+                ),
+              ),
+            ),
         ],
       ),
     );
