@@ -1,7 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/forgetScreen.dart';
 import 'package:flutter_application_1/user/screens/home.dart';
+import 'package:flutter_application_1/user/screens/productScreen.dart';
+import 'package:flutter_application_1/user/screens/veterinary.dart';
 import 'package:flutter_application_1/user/services/Buyer_auth_service.dart';
 import 'package:lottie/lottie.dart';
 import 'adminScreen.dart'; // Import your AdminPage
@@ -17,12 +20,10 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _otpController =
-      TextEditingController(); // OTP controller
   final _formKey = GlobalKey<FormState>();
   bool loading = false;
 
-  // Helper function to validate email format
+  // Validate email format
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
       return 'Email is required';
@@ -35,7 +36,7 @@ class _LoginPageState extends State<LoginPage> {
     return null;
   }
 
-  // Helper function to validate password
+  // Validate password
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return 'Password is required';
@@ -43,48 +44,95 @@ class _LoginPageState extends State<LoginPage> {
     return null;
   }
 
-  // Helper function to validate OTP
-  String? _validateOtp(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'OTP is required';
-    } else if (value.length != 5) {
-      return 'OTP must be 5 digits';
-    }
-    return null;
-  }
-
-  void login_Handler() async {
+  Future<void> loginHandler() async {
     if (_formKey.currentState?.validate() == true) {
       setState(() {
         loading = true;
       });
+
       String email = _emailController.text.trim();
       String password = _passwordController.text;
 
-      // Check for specific credentials
-      if (email == 'p@gmail.com' && password == '1') {
-        // Redirect to AdminPage if credentials match
-        await Future.delayed(const Duration(seconds: 2)); // Simulate delay
-        setState(() {
-          loading = false;
-        });
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const AdminPage(),
-          ),
-          (route) => false,
-        );
-      } else {
-        // Redirect to HomePage for all other credentials
-        await BuyerAuthService().userLogin(
+      try {
+        if (email == 'p@gmail.com' && password == '1') {
+          // Admin credentials
+          await Future.delayed(const Duration(seconds: 2)); // Simulate delay
+          setState(() {
+            loading = false;
+          });
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminPage()),
+            (route) => false,
+          );
+        } else {
+          // Authenticate user using BuyerAuthService
+          final user = await BuyerAuthService().userLogin(
             context: context,
-            email: _emailController.text,
-            password: _passwordController.text);
+            email: email,
+            password: password,
+          );
 
+          if (user != null) {
+            // Fetch user document from Firestore
+            DocumentSnapshot userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
+
+            if (userDoc.exists) {
+              // Get position field from Firestore
+              String? position = userDoc['position'];
+
+              setState(() {
+                loading = false;
+              });
+
+              // Redirect based on user position
+              if (position == 'Buyer') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomePage()),
+                );
+              } else if (position == 'Seller') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const ProductsScreen()),
+                );
+              } else if (position == 'Veterinary') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const VeterinaryScreen()),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Unknown user position')),
+                );
+              }
+            } else {
+              setState(() {
+                loading = false;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('User data not found in Firestore')),
+              );
+            }
+          } else {
+            setState(() {
+              loading = false;
+            });
+          }
+        }
+      } catch (e) {
         setState(() {
           loading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
       }
     }
   }
@@ -120,17 +168,11 @@ class _LoginPageState extends State<LoginPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Center(
-                        child: CircleAvatar(
-                          backgroundImage: AssetImage('asset/image/intro.gif'),
-                          radius: 60,
-                        ),
+                      const CircleAvatar(
+                        backgroundImage: AssetImage('asset/image/intro.gif'),
+                        radius: 60,
                       ),
                       const SizedBox(height: 30),
-
-                      // OTP TextField with 5 digit validation
-
-                      const SizedBox(height: 20),
 
                       // Email TextField with validation
                       TextFormField(
@@ -164,11 +206,10 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Sign In Button with credential check
+                      // Sign In Button
                       ElevatedButton(
-                        onPressed: login_Handler,
+                        onPressed: loginHandler,
                         style: ElevatedButton.styleFrom(
-                          shadowColor: Colors.red,
                           padding: const EdgeInsets.symmetric(
                               vertical: 12, horizontal: 32),
                           backgroundColor: Colors.white,
@@ -182,10 +223,10 @@ class _LoginPageState extends State<LoginPage> {
                       TextButton(
                         onPressed: () {
                           Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const ForgetScreen()));
-                          print('Forgot Password? clicked');
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const ForgetScreen()),
+                          );
                         },
                         child: const Text(
                           'Forgot Password?',
@@ -195,33 +236,31 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 20),
 
                       // "Don't have an account? Sign Up" link
-                      Center(
-                        child: RichText(
-                          text: TextSpan(
-                            text: "Don't have an account? ",
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 16,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: 'Sign Up',
-                                style: const TextStyle(
-                                  color: Colors.blue,
-                                  decoration: TextDecoration.underline,
-                                ),
-                                recognizer: TapGestureRecognizer()
-                                  ..onTap = () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              const SignUpPage()),
-                                    );
-                                  },
-                              ),
-                            ],
+                      RichText(
+                        text: TextSpan(
+                          text: "Don't have an account? ",
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
                           ),
+                          children: [
+                            TextSpan(
+                              text: 'Sign Up',
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            const SignUpPage()),
+                                  );
+                                },
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -237,10 +276,9 @@ class _LoginPageState extends State<LoginPage> {
               color: Colors.black.withOpacity(0.6), // Dark overlay
               child: Center(
                 child: SizedBox(
-                  width: 350,
-                  height: 350,
-                  child: Lottie.asset(
-                      'asset/image/loading.json'), // Replace with your Lottie JSON file path
+                  width: 200,
+                  height: 200,
+                  child: Lottie.asset('asset/image/loading.json'),
                 ),
               ),
             ),

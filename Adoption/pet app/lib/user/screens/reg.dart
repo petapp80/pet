@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/user/screens/selectuser.dart';
 import 'package:flutter_application_1/user/services/Buyer_auth_service.dart';
 import 'package:lottie/lottie.dart';
 import 'login screen.dart';
@@ -43,7 +44,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
+          MaterialPageRoute(builder: (context) => const SelectUser()),
         );
       } catch (error) {
         setState(() {

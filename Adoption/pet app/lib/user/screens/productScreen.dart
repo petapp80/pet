@@ -58,8 +58,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
           children: <Widget>[
             const Messagescreen(), // Messages Screen
             const ProductsAddScreen(), // Products Add Screen
-            const ProfileScreen(), // Profile screen
-            const ProductCartScreen(), // Placeholder for Cart screen
+            const ProductCartScreen(), // Cart screen (now at third position)
+            const ProfileScreen(), // Profile screen (now at fourth position)
           ],
         ),
         bottomNavigationBar: BottomNavigationBar(
@@ -79,12 +79,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
               label: 'Add',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.account_circle),
-              label: 'Profile',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.shopping_cart),
               label: 'Cart',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.account_circle),
+              label: 'Profile',
             ),
           ],
         ),

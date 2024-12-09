@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore
 import 'package:flutter_application_1/user/screens/productScreen.dart';
 import 'package:flutter_application_1/user/screens/veterinary.dart';
-
-// Assuming you have a HomePage widget defined somewhere in your project
 import 'home.dart'; // Import your HomePage
 
 class SelectUser extends StatefulWidget {
@@ -13,23 +12,50 @@ class SelectUser extends StatefulWidget {
 }
 
 class _SelectUserState extends State<SelectUser> {
-  void _navigateToPurpose(String purpose) {
-    if (purpose == 'Buyer') {
-      // Navigate to HomePage if Buyer is selected
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
-    } else if (purpose == 'Products') {
-      Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (context) => const ProductsScreen()));
-    } else if (purpose == 'Veterinary') {
-      Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (context) => const VeterinaryScreen()));
-    } else {
-      // Handle other purposes if needed
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Example user ID (replace with actual user authentication logic)
+  final String _userId = 'exampleUserId123';
+
+  void _navigateToPurpose(String purpose) async {
+    try {
+      // Check if user document exists
+      DocumentReference userDoc = _firestore.collection('users').doc(_userId);
+      DocumentSnapshot snapshot = await userDoc.get();
+
+      if (snapshot.exists) {
+        // Update the document with the selected position
+        await userDoc.set(
+          {'position': purpose},
+          SetOptions(merge: true), // Merge to add or update the field
+        );
+      } else {
+        // Create a new document with the selected position if it doesn't exist
+        await userDoc.set({
+          'position': purpose,
+        });
+      }
+
+      // Navigate based on the purpose
+      if (purpose == 'Buyer') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      } else if (purpose == 'Products') {
+        Navigator.pushReplacement(context,
+            MaterialPageRoute(builder: (context) => const ProductsScreen()));
+      } else if (purpose == 'Veterinary') {
+        Navigator.pushReplacement(context,
+            MaterialPageRoute(builder: (context) => const VeterinaryScreen()));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Selected: $purpose')),
+        );
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Selected: $purpose')),
+        SnackBar(content: Text('Error saving position: $e')),
       );
     }
   }

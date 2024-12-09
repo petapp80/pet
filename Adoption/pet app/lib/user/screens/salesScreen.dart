@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 class SalesScreen extends StatefulWidget {
@@ -30,7 +31,6 @@ class _SalesScreenState extends State<SalesScreen> {
       'salesAmount': 250,
       'date': DateTime.now().subtract(const Duration(days: 15))
     },
-    // More data...
   ];
 
   List<Map<String, dynamic>> get filteredSales {
@@ -62,16 +62,6 @@ class _SalesScreenState extends State<SalesScreen> {
       default:
         return _salesData;
     }
-  }
-
-  // Function to create the chart data
-  List<Map<String, dynamic>> _generateChartData() {
-    return filteredSales
-        .map((sale) => {
-              'petName': sale['petName'],
-              'salesAmount': sale['salesAmount'],
-            })
-        .toList();
   }
 
   @override
@@ -112,7 +102,7 @@ class _SalesScreenState extends State<SalesScreen> {
                 IconButton(
                   icon: const Icon(Icons.search),
                   onPressed: () {
-                    // You can add more search functionality here if needed
+                    // Add more search functionality here if needed
                     print('Searching...');
                   },
                 ),
@@ -120,16 +110,64 @@ class _SalesScreenState extends State<SalesScreen> {
             ),
 
             const SizedBox(height: 20),
-
-            // Chart Section (Custom Bar Chart)
+            // Chart Section (FL Chart)
             SizedBox(
               height: 250,
-              child: CustomPaint(
-                painter: SalesChartPainter(_generateChartData()),
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  barGroups: filteredSales.map((sale) {
+                    int index = filteredSales.indexOf(sale);
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                          toY: sale['salesAmount'].toDouble(),
+                          color: Colors.blue,
+                          width: 16,
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        getTitlesWidget: (value, meta) => Text(
+                          value.toInt().toString(),
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() >= filteredSales.length ||
+                              value.toInt() < 0) {
+                            return const SizedBox.shrink();
+                          }
+                          return Transform.rotate(
+                            angle: -0.3,
+                            child: Text(
+                              filteredSales[value.toInt()]['petName'],
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  gridData: FlGridData(show: false),
+                  borderData: FlBorderData(show: false),
+                ),
               ),
             ),
 
             const SizedBox(height: 20),
+
             // Sales List Section
             const Text('Sales Data:',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -158,50 +196,5 @@ class _SalesScreenState extends State<SalesScreen> {
         ),
       ),
     );
-  }
-}
-
-class SalesChartPainter extends CustomPainter {
-  final List<Map<String, dynamic>> data;
-
-  SalesChartPainter(this.data);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    Paint paint = Paint()..color = Colors.blue;
-
-    double barWidth = size.width / data.length;
-    double maxHeight = size.height;
-
-    for (int i = 0; i < data.length; i++) {
-      double barHeight = data[i]['salesAmount'] *
-          (maxHeight / 250); // Scaling sales amount to fit the chart height
-      double xPosition = i * barWidth;
-      double yPosition = size.height - barHeight;
-
-      // Draw each bar
-      canvas.drawRect(
-        Rect.fromLTWH(xPosition, yPosition, barWidth - 10, barHeight),
-        paint,
-      );
-
-      // Draw labels at the bottom
-      TextPainter textPainter = TextPainter(
-        text: TextSpan(
-          text: data[i]['petName'],
-          style: const TextStyle(color: Colors.black, fontSize: 10),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout(minWidth: 0, maxWidth: size.width);
-      textPainter.paint(
-        canvas,
-        Offset(xPosition + 5, size.height - 20),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) {
-    return false;
   }
 }

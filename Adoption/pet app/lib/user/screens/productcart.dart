@@ -18,32 +18,35 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
         title: const Text('Product Cart'),
         backgroundColor: Colors.teal, // AppBar color
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            // Row with Ongoing and Completed Text inside rounded box
-            Row(
-              children: [
-                _buildTabText('Ongoing', isOngoingSelected),
-                const SizedBox(width: 16),
-                _buildTabText('Completed', !isOngoingSelected),
-              ],
-            ),
-            const SizedBox(height: 16),
+      body: SingleChildScrollView(
+        // Wrap the entire body in a scroll view
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              // Row with Ongoing and Completed Text inside rounded box
+              Row(
+                children: [
+                  _buildTabText('Ongoing', isOngoingSelected),
+                  const SizedBox(width: 16),
+                  _buildTabText('Completed', !isOngoingSelected),
+                ],
+              ),
+              const SizedBox(height: 16),
 
-            // Display content based on selected tab (Ongoing or Completed)
-            if (isOngoingSelected) ...[
-              // Ongoing Cart Section
-              _buildOngoingCard(),
-              _buildOngoingCard(), // Add another ongoing card for demonstration
-            ] else ...[
-              // Completed Cart Section
-              _buildCompletedCard(),
-              _buildCompletedCard(), // Add another completed card for demonstration
+              // Display content based on selected tab (Ongoing or Completed)
+              if (isOngoingSelected) ...[
+                // Ongoing Cart Section
+                _buildOngoingCard(),
+                _buildOngoingCard(), // Add another ongoing card for demonstration
+              ] else ...[
+                // Completed Cart Section
+                _buildCompletedCard(),
+                _buildCompletedCard(), // Add another completed card for demonstration
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

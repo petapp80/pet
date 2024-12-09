@@ -39,7 +39,7 @@ class _AdminPageState extends State<AdminPage> {
               'Feedback',
               'User Search',
               'Notification',
-              'Give Update'
+              'Articles'
             ];
 
             // List of corresponding pages to navigate to
