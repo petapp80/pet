@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Firebase Authentication
 import 'package:flutter_application_1/user/screens/productScreen.dart';
 import 'package:flutter_application_1/user/screens/veterinary.dart';
-import 'home.dart'; // Import your HomePage
+import 'home.dart';
 
 class SelectUser extends StatefulWidget {
   const SelectUser({super.key});
@@ -13,14 +14,23 @@ class SelectUser extends StatefulWidget {
 
 class _SelectUserState extends State<SelectUser> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Example user ID (replace with actual user authentication logic)
-  final String _userId = 'exampleUserId123';
-
-  void _navigateToPurpose(String purpose) async {
+  Future<void> _navigateToPurpose(String purpose) async {
     try {
+      // Get the current user's ID
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No authenticated user found.')),
+        );
+        return;
+      }
+
+      String userId = user.uid;
+
       // Check if user document exists
-      DocumentReference userDoc = _firestore.collection('users').doc(_userId);
+      DocumentReference userDoc = _firestore.collection('user').doc(userId);
       DocumentSnapshot snapshot = await userDoc.get();
 
       if (snapshot.exists) {
@@ -33,6 +43,7 @@ class _SelectUserState extends State<SelectUser> {
         // Create a new document with the selected position if it doesn't exist
         await userDoc.set({
           'position': purpose,
+          'createdAt': FieldValue.serverTimestamp(), // Optional metadata
         });
       }
 
@@ -42,12 +53,16 @@ class _SelectUserState extends State<SelectUser> {
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
-      } else if (purpose == 'Products') {
-        Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (context) => const ProductsScreen()));
+      } else if (purpose == 'Seller') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ProductsScreen()),
+        );
       } else if (purpose == 'Veterinary') {
-        Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (context) => const VeterinaryScreen()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const VeterinaryScreen()),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Selected: $purpose')),
@@ -93,7 +108,7 @@ class _SelectUserState extends State<SelectUser> {
               icon: Icons.production_quantity_limits,
               title: 'Products',
               description: 'Manage or browse products listed on the platform.',
-              onTap: () => _navigateToPurpose('Products'),
+              onTap: () => _navigateToPurpose('Seller'),
             ),
             const SizedBox(height: 20),
             _purposeOption(

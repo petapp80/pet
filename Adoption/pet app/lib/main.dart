@@ -23,7 +23,7 @@ void main() async {
   runApp(
     const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: LoginPage(),
+      home: SignUpPage(),
     ),
   );
 }

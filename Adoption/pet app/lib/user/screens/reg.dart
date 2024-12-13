@@ -1,9 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/user/screens/login%20screen.dart';
 import 'package:flutter_application_1/user/screens/selectuser.dart';
 import 'package:flutter_application_1/user/services/Buyer_auth_service.dart';
 import 'package:lottie/lottie.dart';
-import 'login screen.dart';
+import 'login screen.dart'; // Updated for consistency
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -22,16 +23,31 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _confirmController = TextEditingController();
   bool visible1 = true;
   bool visible2 = true;
-  bool loading = false; // Added loading state
+  bool loading = false;
 
   void signUpHandler() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
-        loading = true; // Show loading overlay
+        loading = true;
       });
 
       try {
-        await BuyerAuthService().userregister(
+        // Check if email is already registered in Firestore
+        final emailExists =
+            await BuyerAuthService().checkEmailExists(_emailController.text);
+
+        if (emailExists) {
+          setState(() {
+            loading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Email is already registered')),
+          );
+          return; // Stop further processing
+        }
+
+        // Proceed with user registration
+        await BuyerAuthService().registerUser(
           context: context,
           username: _userNameController.text,
           email: _emailController.text,
@@ -39,7 +55,7 @@ class _SignUpPageState extends State<SignUpPage> {
         );
 
         setState(() {
-          loading = false; // Hide loading overlay
+          loading = false;
         });
 
         Navigator.pushReplacement(
@@ -48,11 +64,10 @@ class _SignUpPageState extends State<SignUpPage> {
         );
       } catch (error) {
         setState(() {
-          loading = false; // Hide loading overlay
+          loading = false;
         });
-        // Handle error (e.g., show a snackbar)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
+          SnackBar(content: Text('Error: $error')),
         );
       }
     }
@@ -70,9 +85,9 @@ class _SignUpPageState extends State<SignUpPage> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFFFD194), // Light orange
-                  Color(0xFFFFC3A0), // Soft peach
-                  Color(0xFFF8A170), // Warm sunset
+                  Color(0xFFE1BEE7), // Light orange
+                  Color(0xFFCE93D8), // Soft peach
+                  Color(0xFFBA68C8), // Warm sunset
                 ],
               ),
             ),
@@ -96,9 +111,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                   ),
                 ),
-                const SizedBox(
-                  height: 100,
-                ),
+                const SizedBox(height: 100),
                 Expanded(
                   child: SingleChildScrollView(
                     child: Padding(
@@ -225,7 +238,7 @@ class _SignUpPageState extends State<SignUpPage> {
                             const SizedBox(height: 30),
 
                             ElevatedButton(
-                              onPressed: signUpHandler, // Use handler
+                              onPressed: signUpHandler,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor:
                                     const Color.fromARGB(255, 255, 254, 253),
@@ -284,13 +297,12 @@ class _SignUpPageState extends State<SignUpPage> {
           // Loading Overlay
           if (loading)
             Container(
-              color: Colors.black.withOpacity(0.6), // Dark overlay
+              color: Colors.black.withOpacity(0.6),
               child: Center(
                 child: SizedBox(
                   width: 350,
                   height: 350,
-                  child: Lottie.asset(
-                      'asset/image/loading.json'), // Replace with your Lottie JSON file path
+                  child: Lottie.asset('asset/image/loading.json'),
                 ),
               ),
             ),

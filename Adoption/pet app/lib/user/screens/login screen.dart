@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/forgetScreen.dart';
@@ -67,16 +68,15 @@ class _LoginPageState extends State<LoginPage> {
           );
         } else {
           // Authenticate user using BuyerAuthService
-          final user = await BuyerAuthService().userLogin(
+          final User? user = await BuyerAuthService().loginUser(
             context: context,
             email: email,
             password: password,
           );
-
           if (user != null) {
             // Fetch user document from Firestore
             DocumentSnapshot userDoc = await FirebaseFirestore.instance
-                .collection('users')
+                .collection('user')
                 .doc(user.uid)
                 .get();
 
@@ -149,9 +149,9 @@ class _LoginPageState extends State<LoginPage> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFFFD194), // Light orange
-                  Color(0xFFFFC3A0), // Soft peach
-                  Color(0xFFF8A170), // Warm sunset
+                  Color(0xFFE1BEE7), // Light orange
+                  Color(0xFFCE93D8), // Soft peach
+                  Color(0xFFBA68C8), // Warm sunset
                 ],
               ),
             ),
