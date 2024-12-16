@@ -3,7 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Firebase Authentication
 import 'package:flutter_application_1/user/screens/productScreen.dart';
 import 'package:flutter_application_1/user/screens/veterinary.dart';
-import 'home.dart';
+import 'home.dart'; // Import HomePage
+import 'package:flutter_application_1/user/screens/productsAddScreen.dart'; // Import ProductsScreen
 
 class SelectUser extends StatefulWidget {
   const SelectUser({super.key});
@@ -81,44 +82,61 @@ class _SelectUserState extends State<SelectUser> {
       appBar: AppBar(
         title: const Text('Select Your Purpose'),
         centerTitle: true,
+        backgroundColor: const Color(0xFFE1BEE7), // AppBar background color
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Choose your purpose for using our app:',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+      body: Container(
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFE1BEE7), // Light purple
+              Color(0xFFCE93D8), // Medium purple
+              Color(0xFFBA68C8), // Vibrant purple
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Choose your purpose for using our app:',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white, // Ensure contrast with background
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            _purposeOption(
-              icon: Icons.shopping_cart,
-              title: 'Buyer',
-              description:
-                  'Explore and purchase items or services available on our platform.',
-              onTap: () => _navigateToPurpose('Buyer'),
-            ),
-            const SizedBox(height: 20),
-            _purposeOption(
-              icon: Icons.production_quantity_limits,
-              title: 'Products',
-              description: 'Manage or browse products listed on the platform.',
-              onTap: () => _navigateToPurpose('Seller'),
-            ),
-            const SizedBox(height: 20),
-            _purposeOption(
-              icon: Icons.pets,
-              title: 'Veterinary',
-              description:
-                  'Connect with veterinary services or manage pet care needs.',
-              onTap: () => _navigateToPurpose('Veterinary'),
-            ),
-          ],
+              const SizedBox(height: 20),
+              _purposeOption(
+                icon: Icons.shopping_cart,
+                title: 'Buyer',
+                description:
+                    'Explore and purchase items or services available on our platform.',
+                onTap: () => _navigateToPurpose('Buyer'),
+              ),
+              const SizedBox(height: 20),
+              _purposeOption(
+                icon: Icons.production_quantity_limits,
+                title: 'Products',
+                description:
+                    'Manage or browse products listed on the platform.',
+                onTap: () => _navigateToPurpose('Seller'),
+              ),
+              const SizedBox(height: 20),
+              _purposeOption(
+                icon: Icons.pets,
+                title: 'Veterinary',
+                description:
+                    'Connect with veterinary services or manage pet care needs.',
+                onTap: () => _navigateToPurpose('Veterinary'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -135,7 +153,7 @@ class _SelectUserState extends State<SelectUser> {
       child: Container(
         padding: const EdgeInsets.all(16.0),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color(0xFF512DA8), // Button background color
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
@@ -152,12 +170,12 @@ class _SelectUserState extends State<SelectUser> {
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.blue.shade100,
+                color: Colors.white,
               ),
               child: Icon(
                 icon,
                 size: 30,
-                color: Colors.blue,
+                color: const Color(0xFF512DA8), // Match button color
               ),
             ),
             const SizedBox(width: 16),
@@ -170,13 +188,14 @@ class _SelectUserState extends State<SelectUser> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: Colors.white, // Ensure contrast with background
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     description,
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
+                    style: const TextStyle(fontSize: 14, color: Colors.white70),
+                  )
                 ],
               ),
             ),

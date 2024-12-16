@@ -62,10 +62,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       resizeToAvoidBottomInset:
           true, // Adjust screen when keyboard is shown or Snackbar appears
       appBar: AppBar(
+        backgroundColor: isDark
+            ? Colors.black
+            : Colors.blue, // Change AppBar color based on theme
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -79,7 +85,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               radius: 20,
             ),
             const SizedBox(width: 10),
-            Text(widget.name),
+            Text(
+              widget.name,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
           ],
         ),
       ),
@@ -87,27 +98,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: [
           Expanded(
             child: ListView(
-              children: const [
+              children: [
                 // Example of chat messages (add more if needed)
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Hello!',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
+                _buildChatBubble(
+                  message: 'Hello!',
+                  isSender: false,
+                  isDark: isDark,
                 ),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      'Hi there!',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
+                _buildChatBubble(
+                  message: 'Hi there!',
+                  isSender: true,
+                  isDark: isDark,
                 ),
               ],
             ),
@@ -119,15 +120,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               children: [
                 IconButton(
                   onPressed: () => _pickFile(context), // Open file picker
-                  icon: const Icon(Icons.attach_file),
+                  icon: Icon(
+                    Icons.attach_file,
+                    color: isDark ? Colors.grey[400] : Colors.grey[800],
+                  ),
                 ),
                 Expanded(
                   child: TextField(
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
+                      hintStyle: TextStyle(
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20.0),
                       ),
+                      filled: true,
+                      fillColor: isDark
+                          ? Colors.grey[800]
+                          : Colors.grey[200], // Input background
                     ),
                   ),
                 ),
@@ -135,7 +149,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   onPressed: () {
                     // Handle send action
                   },
-                  icon: const Icon(Icons.send),
+                  icon: Icon(
+                    Icons.send,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
               ],
             ),
@@ -170,6 +187,35 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  // Helper function to build chat bubbles dynamically
+  Widget _buildChatBubble({
+    required String message,
+    required bool isSender,
+    required bool isDark,
+  }) {
+    return Align(
+      alignment: isSender ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSender
+              ? (isDark ? Colors.blue[700] : Colors.blue[300]) // Sender bubble
+              : (isDark
+                  ? Colors.grey[800]
+                  : Colors.grey[200]), // Receiver bubble
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          message,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
       ),
     );
   }

@@ -106,6 +106,16 @@ class _LoginPageState extends State<LoginPage> {
                   MaterialPageRoute(
                       builder: (context) => const VeterinaryScreen()),
                 );
+              } else if (position == 'Buyer-Seller') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomePage()),
+                );
+              } else if (position == 'Buyer-Veterinary') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomePage()),
+                );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Unknown user position')),
@@ -139,150 +149,159 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Gradient background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFE1BEE7), // Light orange
-                  Color(0xFFCE93D8), // Soft peach
-                  Color(0xFFBA68C8), // Warm sunset
-                ],
+    // Here, we wrap the LoginPage with a Theme widget to bypass the system's theme
+    return Theme(
+      data: ThemeData(
+        brightness: Brightness.light, // Ensure light theme is used
+        primaryColor: const Color(0xFF512DA8),
+        scaffoldBackgroundColor:
+            const Color(0xFFE1BEE7), // Background color for the screen
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          labelStyle: TextStyle(color: Colors.black),
+          border: OutlineInputBorder(),
+          prefixIconColor: Colors.black,
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(foregroundColor: Colors.blue),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            foregroundColor: Colors.white,
+            backgroundColor: const Color(0xFF512DA8),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 32),
+          ),
+        ),
+      ),
+      child: Scaffold(
+        body: Stack(
+          children: [
+            // Gradient background
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFE1BEE7), // Light orange
+                    Color(0xFFCE93D8), // Soft peach
+                    Color(0xFFBA68C8), // Warm sunset
+                  ],
+                ),
               ),
             ),
-          ),
-
-          // Main content
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const CircleAvatar(
-                        backgroundImage: AssetImage('asset/image/intro.gif'),
-                        radius: 60,
-                      ),
-                      const SizedBox(height: 30),
-
-                      // Email TextField with validation
-                      TextFormField(
-                        controller: _emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          hintText: 'Enter your email',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.email),
-                          filled: true,
-                          fillColor: Colors.white,
+            // Main content
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const CircleAvatar(
+                          backgroundImage: AssetImage('asset/image/intro.gif'),
+                          radius: 60,
                         ),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: _validateEmail,
-                      ),
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 30),
 
-                      // Password TextField with validation
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: const InputDecoration(
-                          labelText: 'Password',
-                          hintText: 'Enter your password',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.lock),
-                          filled: true,
-                          fillColor: Colors.white,
-                        ),
-                        obscureText: true,
-                        validator: _validatePassword,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Sign In Button
-                      ElevatedButton(
-                        onPressed: loginHandler,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 12, horizontal: 32),
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                        ),
-                        child: const Text('Sign In'),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // "Forgot Password?" Text
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const ForgetScreen()),
-                          );
-                        },
-                        child: const Text(
-                          'Forgot Password?',
-                          style: TextStyle(color: Colors.blue),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // "Don't have an account? Sign Up" link
-                      RichText(
-                        text: TextSpan(
-                          text: "Don't have an account? ",
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 16,
+                        // Email TextField with validation
+                        TextFormField(
+                          controller: _emailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            hintText: 'Enter your email',
+                            prefixIcon: Icon(Icons.email, color: Colors.black),
                           ),
-                          children: [
-                            TextSpan(
-                              text: 'Sign Up',
-                              style: const TextStyle(
-                                color: Colors.blue,
-                                decoration: TextDecoration.underline,
-                              ),
-                              recognizer: TapGestureRecognizer()
-                                ..onTap = () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            const SignUpPage()),
-                                  );
-                                },
-                            ),
-                          ],
+                          keyboardType: TextInputType.emailAddress,
+                          validator: _validateEmail,
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 20),
+
+                        // Password TextField with validation
+                        TextFormField(
+                          controller: _passwordController,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            hintText: 'Enter your password',
+                            prefixIcon: Icon(Icons.lock, color: Colors.black),
+                          ),
+                          obscureText: true,
+                          validator: _validatePassword,
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Sign In Button
+                        ElevatedButton(
+                          onPressed: loginHandler,
+                          child: const Text('Sign In'),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // "Forgot Password?" Text
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const ForgetScreen()),
+                            );
+                          },
+                          child: const Text('Forgot Password?'),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // "Don't have an account? Sign Up" link
+                        RichText(
+                          text: TextSpan(
+                            text: "Don't have an account? ",
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 16,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: 'Sign Up',
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  decoration: TextDecoration.underline,
+                                ),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              const SignUpPage()),
+                                    );
+                                  },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-
-          // Loading Overlay
-          if (loading)
-            Container(
-              color: Colors.black.withOpacity(0.6), // Dark overlay
-              child: Center(
-                child: SizedBox(
-                  width: 200,
-                  height: 200,
-                  child: Lottie.asset('asset/image/loading.json'),
+            // Loading Overlay
+            if (loading)
+              Container(
+                color: Colors.black.withOpacity(0.6),
+                child: Center(
+                  child: SizedBox(
+                    width: 200,
+                    height: 200,
+                    child: Lottie.asset('asset/image/loading.json'),
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

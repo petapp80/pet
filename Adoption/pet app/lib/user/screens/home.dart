@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/chatDetailScreen.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'floatingbttn.dart';
+import 'productScreen.dart';
 import 'profile.dart';
 import 'cartScreen.dart';
 import 'messageScreen.dart';
 import 'searchScreen.dart';
 import 'addScreen.dart';
+import 'veterinary.dart';
+import 'veterinaryAdd.dart'; // Import the VeterinaryAddScreen
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,6 +22,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _selectedIndex = 2;
   DateTime? lastBackPressed;
+  String? _userPosition;
 
   // Sample data for suggestions
   final List<Map<String, String>> _suggestions = [
@@ -59,15 +65,39 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-
-    // Initialize the screens
+    // Fetch user position
+    _fetchUserPosition();
+    // Initialize the screens without depending on context
     _screens = [
       const Messagescreen(),
       const Searchscreen(),
-      _buildHomeScreen(),
-      const CartScreen(), // CartScreen without cartItems passed as a parameter
+      Container(), // Placeholder, _buildHomeScreen will be rebuilt later
+      const CartScreen(),
       const ProfileScreen(),
     ];
+  }
+
+  Future<void> _fetchUserPosition() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final userDoc =
+        await FirebaseFirestore.instance.collection('user').doc(userId).get();
+    if (userDoc.exists) {
+      setState(() {
+        _userPosition = userDoc.data()?['position'];
+      });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Update the third screen now that context is available
+    setState(() {
+      _screens[2] = _buildHomeScreen();
+    });
   }
 
   Widget _buildHomeScreen() {
@@ -77,48 +107,53 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 10.6),
-          const Text(
+          Text(
             'Suggestions',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 16),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: _handleRefresh, // Triggered on pull-to-refresh
+              onRefresh: _handleRefresh,
               child: ListView.builder(
                 itemCount: _suggestions.length,
                 itemBuilder: (context, index) {
                   final suggestion = _suggestions[index];
-                  final isSpecial =
-                      index == 2; // Explicitly mark the 3rd suggestion
+                  final isSpecial = index == 2;
 
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    color: isSpecial ? Colors.lightBlue.shade50 : Colors.white,
+                    color: isSpecial
+                        ? Theme.of(context).colorScheme.secondaryContainer
+                        : Theme.of(context).colorScheme.surface,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (isSpecial) ...[
+                        if (isSpecial)
                           Container(
                             padding: const EdgeInsets.all(8.0),
-                            decoration: const BoxDecoration(
-                              color: Colors.blue,
-                              borderRadius: BorderRadius.vertical(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.secondary,
+                              borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(8),
                               ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Verified Organization',
                               style: TextStyle(
-                                color: Colors.white,
+                                color:
+                                    Theme.of(context).colorScheme.onSecondary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
-                        ],
                         ClipRRect(
                           borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(8),
@@ -136,9 +171,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           padding: const EdgeInsets.all(12.0),
                           child: Text(
                             suggestion["text"]!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -146,9 +182,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: Text(
                             suggestion["description"]!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
@@ -158,7 +196,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: Row(
                             children: [
-                              // Circular Avatar and Name aligned to the start
                               Row(
                                 children: [
                                   CircleAvatar(
@@ -169,70 +206,69 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                   const SizedBox(width: 8),
                                   Text(
                                     suggestion["profileName"]!,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
+                                    ),
                                   ),
                                 ],
                               ),
                               const Spacer(),
-                              Row(
-                                children: [
-                                  IconButton(
-                                    onPressed: () {
-                                      Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                              builder: (context) =>
-                                                  ChatDetailScreen(
-                                                      name: suggestion[
-                                                          "profileName"]!,
-                                                      image: suggestion[
-                                                          "image"]!)));
-                                    },
-                                    icon: const Icon(Icons.message_outlined),
-                                    color: Colors.orange,
-                                  ),
-                                  IconButton(
-                                    onPressed: () {
-                                      addItemToCart(suggestion);
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                              '${suggestion["text"]} added to cart'),
-                                          duration: const Duration(seconds: 1),
+                              IconButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ChatDetailScreen(
+                                        name: suggestion["profileName"]!,
+                                        image: suggestion["image"]!,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.message_outlined),
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  addItemToCart(suggestion);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${suggestion["text"]} added to cart',
+                                      ),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.shopping_cart_outlined),
+                                color: Theme.of(context).colorScheme.tertiary,
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  final shareText =
+                                      '${suggestion["text"]}\n\n${suggestion["description"]}';
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Share'),
+                                      content:
+                                          Text('You are sharing: \n$shareText'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                          },
+                                          child: const Text('Close'),
                                         ),
-                                      );
-                                    },
-                                    icon: const Icon(
-                                        Icons.shopping_cart_outlined),
-                                    color: Colors.green,
-                                  ),
-                                  IconButton(
-                                    onPressed: () {
-                                      final shareText =
-                                          '${suggestion["text"]}\n\n${suggestion["description"]}';
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: const Text('Share'),
-                                          content: Text(
-                                              'You are sharing: \n$shareText'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () {
-                                                Navigator.pop(context);
-                                              },
-                                              child: const Text('Close'),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.share_outlined),
-                                    color: Colors.blue,
-                                  ),
-                                ],
+                                      ],
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.share_outlined),
+                                color: Theme.of(context).colorScheme.secondary,
                               ),
                             ],
                           ),
@@ -241,9 +277,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: Text(
                             'Published: ${suggestion["published"]!}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Colors.black54,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -252,13 +290,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               const EdgeInsets.only(left: 12.0, bottom: 12.0),
                           child: Row(
                             children: [
-                              const Icon(Icons.location_on, color: Colors.red),
+                              Icon(
+                                Icons.location_on,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 suggestion["location"]!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.black87,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                             ],
@@ -326,8 +368,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
-          selectedItemColor: Colors.blue,
-          unselectedItemColor: Colors.grey,
+          selectedItemColor: Theme.of(context).colorScheme.primary,
+          unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
           type: BottomNavigationBarType.fixed,
           items: const [
             BottomNavigationBarItem(
@@ -352,18 +394,45 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            // Navigate to AddScreen when the button is pressed
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddScreen()),
-            );
-          },
-          backgroundColor: Colors.blue,
-          child: const Icon(Icons.add),
-        ),
+        floatingActionButton: _buildFloatingActionButton(),
       ),
     );
+  }
+
+  Widget _buildFloatingActionButton() {
+    if (_userPosition == 'Buyer-Seller') {
+      return FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ProductsScreen()),
+          );
+        },
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: const Icon(Icons.storefront),
+      );
+    } else if (_userPosition == 'Buyer-Veterinary') {
+      return FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const VeterinaryScreen()),
+          );
+        },
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: const Icon(Icons.medical_services),
+      );
+    } else {
+      return FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => AddItemScreen()),
+          );
+        },
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: const Icon(Icons.add),
+      );
+    }
   }
 }

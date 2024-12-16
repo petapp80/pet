@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-// import 'package:flutter_application_1/user/screens/ProductsAddScreen.dart';
+import 'package:flutter/services.dart'; // Import for SystemNavigator
+import 'package:flutter_application_1/user/screens/addScreen.dart';
 import 'package:flutter_application_1/user/screens/productCart.dart';
-import 'package:flutter_application_1/user/screens/productSAddScreen.dart';
-import 'package:flutter_application_1/user/screens/profile.dart'; // Adjust the import as needed
-import 'package:flutter_application_1/user/screens/messageScreen.dart'; // Import the MessageScreen
+import 'package:flutter_application_1/user/screens/productsAddScreen.dart'; // Corrected import statement
+import 'package:flutter_application_1/user/screens/profile.dart';
+import 'package:flutter_application_1/user/screens/messageScreen.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -12,17 +13,23 @@ class ProductsScreen extends StatefulWidget {
   State<ProductsScreen> createState() => _ProductsScreenState();
 }
 
-class _ProductsScreenState extends State<ProductsScreen> {
-  // Index to keep track of the selected tab, default to "Add" screen (index 1)
-  int _selectedIndex = 1;
+class _ProductsScreenState extends State<ProductsScreen>
+    with SingleTickerProviderStateMixin {
+  int _selectedIndex = 1; // Default to "Add" screen in Bottom Navigation
+  int _tabIndex = 0; // Default to "Products" tab when "Add" is selected
+  late TabController _tabController; // TabController to manage the TabBar
 
-  // Used to track the back button press time
   DateTime? _lastPressedAt;
 
   // Function to handle bottom navigation bar item taps
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
+      if (_selectedIndex != 1) {
+        _tabIndex = 0; // Reset tab index if not in "Add" screen
+        _tabController.index =
+            _tabIndex; // Reset TabController to the first tab
+      }
     });
   }
 
@@ -33,7 +40,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
         currentTime.difference(_lastPressedAt!) > const Duration(seconds: 2);
 
     if (backButtonExit) {
-      // If the back button is pressed once, show the Snackbar message
       _lastPressedAt = currentTime;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -41,69 +47,92 @@ class _ProductsScreenState extends State<ProductsScreen> {
           duration: Duration(seconds: 2),
         ),
       );
-      return false; // Prevent app exit
+      return false;
     } else {
-      return true; // Exit the app
+      // Instead of returning true directly, we exit the app using SystemNavigator
+      SystemNavigator.pop();
+      return true;
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _onWillPop, // Prevents back button and asks for confirmation
-      child: Scaffold(
-        // Removed appBar completely
-        body: IndexedStack(
-          index: _selectedIndex, // Sets the currently selected index
-          children: <Widget>[
-            const Messagescreen(), // Messages Screen
-            const ProductsAddScreen(), // Products Add Screen
-            const ProductCartScreen(), // Cart screen (now at third position)
-            const ProfileScreen(), // Profile screen (now at fourth position)
-          ],
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex, // Sets the current selected index
-          onTap: _onItemTapped, // Handles icon taps
-          backgroundColor:
-              Colors.teal, // Bottom navigation bar background color
-          selectedItemColor: Colors.blue, // Change selected item color to blue
-          unselectedItemColor: Colors.grey, // Color for unselected items
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: Icon(Icons.message),
-              label: 'Messages',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.add),
-              label: 'Add',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.shopping_cart),
-              label: 'Cart',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_circle),
-              label: 'Profile',
-            ),
-          ],
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+        length: 2, vsync: this); // Initialize TabController with 2 tabs
   }
-}
 
-class MessageScreen extends StatelessWidget {
-  const MessageScreen({super.key});
+  @override
+  void dispose() {
+    _tabController
+        .dispose(); // Dispose the TabController when the widget is disposed
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Define the argument to pass
+    final String fromScreen = 'ProductsScreen';
+
     return Scaffold(
-      body: Center(
-        child: Text(
-          'Welcome to the Messages Screen!',
-          style: TextStyle(fontSize: 24),
-        ),
+      appBar: AppBar(
+        title: const Text('Product & Pets'),
+        bottom: _selectedIndex == 1 // Only show the TabBar if "Add" is selected
+            ? TabBar(
+                controller:
+                    _tabController, // Use the TabController to manage tabs
+                onTap: (index) {
+                  setState(() {
+                    _tabIndex = index; // Update tab index when tapping
+                  });
+                },
+                tabs: const [
+                  Tab(text: 'Products'),
+                  Tab(text: 'Pets'),
+                ],
+              )
+            : null,
+      ),
+      body: _selectedIndex == 1
+          ? IndexedStack(
+              index: _tabIndex, // Switch between Product and Pets screens
+              children: [
+                ProductsAddScreen(
+                    fromScreen:
+                        fromScreen), // Products Add Screen with argument
+                AddScreen(
+                    fromScreen: fromScreen), // Pets Add Screen with argument
+              ],
+            )
+          : _selectedIndex == 0
+              ? const Messagescreen() // Messages Screen
+              : _selectedIndex == 2
+                  ? const ProductCartScreen() // Cart Screen
+                  : const ProfileScreen(), // Profile Screen
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        backgroundColor: Colors.teal,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.message),
+            label: 'Messages',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add),
+            label: 'Add',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart),
+            label: 'Cart',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_circle),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
   }

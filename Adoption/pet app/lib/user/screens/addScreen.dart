@@ -1,9 +1,17 @@
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'dart:io'; // For File handling
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'home.dart'; // Import the HomePage
 
 class AddScreen extends StatefulWidget {
-  const AddScreen({super.key});
+  final String fromScreen;
+
+  const AddScreen({required this.fromScreen, super.key});
 
   @override
   State<AddScreen> createState() => _AddScreenState();
@@ -50,20 +58,124 @@ class _AddScreenState extends State<AddScreen> {
     });
   }
 
-  // Date picker for Age
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
+  Future<Map<String, dynamic>?> _uploadToCloudinary(File imageFile) async {
+    try {
+      const cloudName = 'db3cpgdwm';
+      const uploadPreset = 'pet_preset';
+      const apiKey = '545187993373729';
+      const apiSecret = 'gdgWv-rubTrQTMn6KG0T7-Q5Cfw';
 
-    if (picked != null) {
-      setState(() {
-        ageController.text =
-            '${picked.toLocal()}'.split(' ')[0]; // Format as yyyy-mm-dd
-      });
+      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final signature = sha1
+          .convert(utf8.encode(
+              'timestamp=$timestamp&upload_preset=$uploadPreset$apiSecret'))
+          .toString();
+
+      final uri =
+          Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload');
+      final request = http.MultipartRequest('POST', uri);
+      request.fields['upload_preset'] = uploadPreset;
+      request.fields['api_key'] = apiKey;
+      request.fields['timestamp'] = timestamp;
+      request.fields['signature'] = signature;
+      request.files
+          .add(await http.MultipartFile.fromPath('file', imageFile.path));
+
+      final response = await request.send();
+      final responseData = await response.stream.toBytes();
+      final jsonResponse = json.decode(String.fromCharCodes(responseData));
+
+      if (response.statusCode == 200) {
+        print("Upload successful: $jsonResponse");
+        return jsonResponse;
+      } else {
+        print("Error uploading image: ${response.statusCode}");
+        print("Response Data: ${String.fromCharCodes(responseData)}");
+        return null;
+      }
+    } catch (e) {
+      print('Error uploading image: $e');
+      return null;
+    }
+  }
+
+  Future<void> _publishPet() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
+
+      // Check the position in the user collection
+      final userDoc =
+          await FirebaseFirestore.instance.collection('user').doc(userId).get();
+      if (userDoc.exists) {
+        final data = userDoc.data()!;
+        final position = data['position'] as String?;
+        if (position != 'Seller') {
+          await FirebaseFirestore.instance
+              .collection('user')
+              .doc(userId)
+              .update({
+            'position': 'Buyer-Seller',
+          });
+        }
+      }
+
+      String? imageUrl;
+      String? imagePublicId;
+
+      // Upload selected image to Cloudinary
+      if (_selectedFile != null) {
+        final uploadResponse = await _uploadToCloudinary(_selectedFile!);
+        if (uploadResponse != null) {
+          imageUrl = uploadResponse['secure_url'];
+          imagePublicId = uploadResponse['public_id'];
+          print("Image uploaded: $imageUrl");
+        }
+      }
+
+      // Prepare data for Firestore
+      final petData = {
+        'userId': userId, // Link pet to current user
+        'petType': petTypeController.text,
+        'breed': breedController.text,
+        'age': ageController.text,
+        'sex': sexController.text,
+        'colour': colourController.text,
+        'weight': weightController.text,
+        'location': locationController.text,
+        'price': '${_selectedCurrency} ${priceController.text}',
+        'about': aboutController.text,
+        'imageUrl': imageUrl,
+        'imagePublicId': imagePublicId,
+      };
+
+      // Add pet data to Firestore in the 'pets' collection
+      await FirebaseFirestore.instance.collection('pets').add(petData);
+
+      // Also add pet data to user's sub-collection in 'user' collection
+      await FirebaseFirestore.instance
+          .collection('user')
+          .doc(userId)
+          .collection('pets')
+          .add(petData);
+
+      print("Pet added: $petData");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pet Published Successfully!')),
+      );
+
+      // Navigate to HomePage or the screen you want
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => HomePage()),
+        (route) => false,
+      );
+    } catch (error) {
+      print('Error publishing pet: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to Publish Pet')),
+      );
     }
   }
 
@@ -112,12 +224,12 @@ class _AddScreenState extends State<AddScreen> {
               ),
               const SizedBox(height: 10),
 
-              // Age (Using Date Picker)
+              // Age (Simple Text Field)
               TextFormField(
                 controller: ageController,
                 decoration: const InputDecoration(
                   labelText: 'Age',
-                  icon: Icon(Icons.calendar_today),
+                  icon: Icon(Icons.cake),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -125,10 +237,6 @@ class _AddScreenState extends State<AddScreen> {
                   }
                   return null;
                 },
-                readOnly:
-                    true, // Make it read-only so the user clicks to select a date
-                onTap: () =>
-                    _selectDate(context), // Show date picker when tapped
               ),
               const SizedBox(height: 10),
 
@@ -218,6 +326,7 @@ class _AddScreenState extends State<AddScreen> {
                       );
                     }).toList(),
                   ),
+                  const SizedBox(width: 16),
                   // Price Input Field
                   Expanded(
                     child: TextFormField(
@@ -293,11 +402,11 @@ class _AddScreenState extends State<AddScreen> {
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
-                    // If the form is valid, display a success message
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Publishing...')),
                     );
-                    // You can add your publishing logic here (e.g., send data to a backend)
+                    // Call the _publishPet function to handle publishing logic
+                    _publishPet();
                   }
                 },
                 child: const Text('Publish'),

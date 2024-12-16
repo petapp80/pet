@@ -68,9 +68,16 @@ class _MessagescreenState extends State<Messagescreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Use theme-dependent colors
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Messages'),
+        backgroundColor: isDark
+            ? Colors.black
+            : Colors.blue, // Dark theme for dark mode, light for light mode
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -88,7 +95,12 @@ class _MessagescreenState extends State<Messagescreen> {
                   borderRadius: BorderRadius.circular(8.0),
                 ),
                 prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: isDark
+                    ? Colors.grey[800] // Dark background for search bar
+                    : Colors.grey[200], // Light background
               ),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black),
             ),
             const SizedBox(height: 20),
 
@@ -103,6 +115,9 @@ class _MessagescreenState extends State<Messagescreen> {
 
                     return Card(
                       margin: const EdgeInsets.symmetric(vertical: 8.0),
+                      color: isDark
+                          ? Colors.grey[900] // Dark mode background
+                          : Colors.white, // Light mode background
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -114,9 +129,19 @@ class _MessagescreenState extends State<Messagescreen> {
                         ),
                         title: Text(
                           message["name"]!,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
                         ),
-                        subtitle: Text(message["message"]!),
+                        subtitle: Text(
+                          message["message"]!,
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.grey[400] // Lighter text in dark mode
+                                : Colors.grey[800], // Darker text in light mode
+                          ),
+                        ),
                         onTap: () {
                           // Navigate to the chat detail screen
                           Navigator.push(

@@ -2,9 +2,13 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/user/screens/login%20screen.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'editProfile.dart';
+import 'forgetScreen.dart';
+import 'login screen.dart';
+import 'reviewScreen.dart';
+import 'settings.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,186 +18,258 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // User profile details (initial data)
-  String _name = 'John Doe';
-  String _email = 'johndoe@example.com';
-  String _password = '********';
   String? _profileImagePath;
+  bool _isDarkTheme = false;
+  late Stream<DocumentSnapshot> _userStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTheme();
+    _initializeUserStream();
+  }
+
+  Future<void> _loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkTheme = prefs.getBool('isDarkTheme') ?? false;
+    });
+  }
+
+  Future<void> _toggleTheme(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkTheme = value;
+    });
+    prefs.setBool('isDarkTheme', value);
+  }
+
+  void _initializeUserStream() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _userStream =
+          FirebaseFirestore.instance.collection('user').doc(uid).snapshots();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _initializeUserStream();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Profile'),
-          centerTitle: true,
-        ),
-        body: StreamBuilder(
-          stream: FirebaseFirestore.instance
-              .collection('user')
-              .doc(FirebaseAuth.instance.currentUser?.uid)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Container(
-                color: Colors.black.withOpacity(0.6), // Dark overlay
-                child: Center(
-                  child: Image.asset(
-                    'asset/image/loading.json', // Replace with your GIF path
-                    width: 150, // Increased width
-                    height: 150, // Increased height
+      appBar: AppBar(
+        title: const Text('Profile'),
+        centerTitle: true,
+        backgroundColor: _isDarkTheme ? Colors.black : Colors.teal,
+      ),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _userStream,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return _buildLoadingScreen();
+          } else if (snapshot.hasError) {
+            return _buildErrorScreen();
+          } else if (snapshot.hasData && snapshot.data != null) {
+            final profileData = snapshot.data!.data() as Map<String, dynamic>?;
+
+            if (profileData == null) {
+              return Center(
+                child: Text(
+                  'Profile data not found',
+                  style: TextStyle(
+                    color: _isDarkTheme ? Colors.white : Colors.black,
                   ),
-                ),
-              );
-            } else if (snapshot.hasError) {
-              return Container(
-                color: Colors.black.withOpacity(0.6), // Dark overlay
-                child: Center(
-                  child: SizedBox(
-                    width: 150,
-                    height: 150,
-                    child: Lottie.asset(
-                        'asset/image/error.json'), // Replace with your Lottie JSON file path
-                  ),
-                ),
-              );
-            } else {
-              final ProfileData = snapshot.data?.data();
-              print(ProfileData);
-              return SingleChildScrollView(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 40),
-                    // Profile Icon
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundImage: _profileImagePath != null
-                          ? FileImage(File(_profileImagePath!))
-                          : const AssetImage('asset/image/dog1.png')
-                              as ImageProvider,
-                    ),
-                    const SizedBox(height: 20),
-                    // Username
-                    Text(
-                      ProfileData!['name'],
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    // Email
-                    Text(
-                      ProfileData!['email'],
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    // Options Box
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 20),
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.shade300,
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          ProfileOption(
-                            icon: Icons.edit,
-                            title: 'Edit Profile',
-                            onTap: () {
-                              // Open Edit Profile Dialog
-                              showDialog(
-                                context: context,
-                                builder: (context) => EditProfileDialog(
-                                  name: _name,
-                                  email: _email,
-                                  profileImagePath: _profileImagePath,
-                                  onSave: (newName, newEmail, newPassword,
-                                      newProfileImagePath) {
-                                    setState(() {
-                                      _name = newName;
-                                      _email = newEmail;
-                                      _password = newPassword;
-                                      _profileImagePath = newProfileImagePath;
-                                    });
-                                    Navigator.pop(context); // Close dialog
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                          const Divider(),
-                          ProfileOption(
-                            icon: Icons.settings,
-                            title: 'Settings',
-                            onTap: () {
-                              // Handle Settings Tap
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Settings clicked')),
-                              );
-                            },
-                          ),
-                          const Divider(),
-                          ProfileOption(
-                            icon: Icons.support_agent,
-                            title: 'Support',
-                            onTap: () {
-                              // Handle Support Tap
-                            },
-                          ),
-                          const Divider(),
-                          ProfileOption(
-                            icon: Icons.feedback_outlined,
-                            title: 'Feedback',
-                            onTap: () {
-                              // Open Feedback Dialog
-                              showDialog(
-                                context: context,
-                                builder: (context) => const FeedbackDialog(),
-                              );
-                            },
-                          ),
-                          const Divider(),
-                          ProfileOption(
-                            icon: Icons.logout,
-                            title: 'Logout',
-                            onTap: () {
-                              // Handle Logout and navigate to Login page, remove all routes
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => const LoginPage()),
-                                (route) =>
-                                    false, // This removes all previous routes
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
               );
             }
-          },
-        ));
+
+            return _buildProfileContent(profileData);
+          } else {
+            return Center(
+              child: Text(
+                'No data available',
+                style: TextStyle(
+                  color: _isDarkTheme ? Colors.white : Colors.black,
+                ),
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildLoadingScreen() {
+    return Container(
+      color: _isDarkTheme
+          ? Colors.black.withOpacity(0.6)
+          : Colors.white.withOpacity(0.6),
+      child: Center(
+        child: Lottie.asset(
+          'asset/image/loading.json',
+          width: 150,
+          height: 150,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen() {
+    return Container(
+      color: _isDarkTheme
+          ? Colors.black.withOpacity(0.6)
+          : Colors.white.withOpacity(0.6),
+      child: Center(
+        child: Lottie.asset(
+          'asset/image/error.json',
+          width: 150,
+          height: 150,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileContent(Map<String, dynamic> profileData) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          const SizedBox(height: 40),
+          CircleAvatar(
+            radius: 60,
+            backgroundImage: _profileImagePath != null
+                ? FileImage(
+                    File(_profileImagePath!)) // Show local image before upload
+                : (profileData['profileImage'] != null &&
+                            profileData['profileImage'].isNotEmpty
+                        ? NetworkImage(
+                            profileData['profileImage']) // Show uploaded image
+                        : AssetImage(
+                            'asset/image/care.jpg') // Placeholder image
+                    ) as ImageProvider,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            profileData['name'] ?? 'Unknown',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: _isDarkTheme ? Colors.white : Colors.black,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            profileData['email'] ?? 'Email not available',
+            style: TextStyle(
+              fontSize: 16,
+              color: _isDarkTheme ? Colors.white70 : Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 30),
+          _buildProfileOptions(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileOptions() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: _isDarkTheme ? Colors.grey[850] : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade300,
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          ProfileOption(
+            icon: Icons.edit,
+            title: 'Edit Profile',
+            isDarkTheme: _isDarkTheme,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EditProfile(),
+                ),
+              );
+            },
+          ),
+          const Divider(),
+          ProfileOption(
+            icon: Icons.password,
+            title: 'Edit Password',
+            isDarkTheme: _isDarkTheme,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ForgetScreen(),
+                ),
+              );
+            },
+          ),
+          const Divider(),
+          ProfileOption(
+            icon: Icons.settings,
+            title: 'Settings',
+            isDarkTheme: _isDarkTheme,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingScreen(),
+                ),
+              );
+            },
+          ),
+          const Divider(),
+          ProfileOption(
+            icon: Icons.feedback_outlined,
+            title: 'Feedback',
+            isDarkTheme: _isDarkTheme,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ReviewsScreen(),
+                ),
+              );
+            },
+          ),
+          const Divider(),
+          ProfileOption(
+            icon: Icons.logout,
+            title: 'Logout',
+            isDarkTheme: _isDarkTheme,
+            onTap: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 }
 
 class ProfileOption extends StatelessWidget {
   final IconData icon;
   final String title;
+  final bool isDarkTheme;
   final VoidCallback onTap;
 
   const ProfileOption({
@@ -201,6 +277,7 @@ class ProfileOption extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
+    required this.isDarkTheme,
   });
 
   @override
@@ -211,214 +288,18 @@ class ProfileOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12.0),
         child: Row(
           children: [
-            Icon(icon, color: Colors.blue),
+            Icon(icon, color: isDarkTheme ? Colors.white : Colors.blue),
             const SizedBox(width: 15),
             Text(
               title,
-              style: const TextStyle(fontSize: 16),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Edit Profile Dialog
-class EditProfileDialog extends StatefulWidget {
-  final String name;
-  final String email;
-  final String? profileImagePath;
-  final Function(String, String, String, String?) onSave;
-
-  const EditProfileDialog({
-    super.key,
-    required this.name,
-    required this.email,
-    required this.profileImagePath,
-    required this.onSave,
-  });
-
-  @override
-  _EditProfileDialogState createState() => _EditProfileDialogState();
-}
-
-class _EditProfileDialogState extends State<EditProfileDialog> {
-  late TextEditingController _nameController;
-  late TextEditingController _emailController;
-  late TextEditingController _passwordController;
-  String? _selectedProfileImagePath;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.name);
-    _emailController = TextEditingController(text: widget.email);
-    _passwordController = TextEditingController();
-    _selectedProfileImagePath = widget.profileImagePath;
-  }
-
-  Future<void> _pickImage() async {
-    FilePickerResult? result =
-        await FilePicker.platform.pickFiles(type: FileType.image);
-
-    if (result != null) {
-      setState(() {
-        _selectedProfileImagePath = result.files.single.path;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Edit Profile'),
-      content: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Profile Image Selection
-            if (_selectedProfileImagePath != null)
-              Stack(
-                alignment: Alignment.topRight,
-                children: [
-                  Image.file(
-                    File(_selectedProfileImagePath!),
-                    width: 100,
-                    height: 100,
-                    fit: BoxFit.cover,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    onPressed: () {
-                      setState(() {
-                        _selectedProfileImagePath = null;
-                      });
-                    },
-                  ),
-                ],
-              )
-            else
-              ElevatedButton.icon(
-                onPressed: _pickImage,
-                icon: const Icon(Icons.image),
-                label: const Text('Select Profile Picture'),
-              ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Password'),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context); // Close dialog
-          },
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            widget.onSave(
-              _nameController.text,
-              _emailController.text,
-              _passwordController.text,
-              _selectedProfileImagePath,
-            );
-          },
-          child: const Text('Save Changes'),
-        ),
-      ],
-    );
-  }
-}
-
-// Feedback Dialog
-class FeedbackDialog extends StatefulWidget {
-  const FeedbackDialog({super.key});
-
-  @override
-  _FeedbackDialogState createState() => _FeedbackDialogState();
-}
-
-class _FeedbackDialogState extends State<FeedbackDialog> {
-  double _rating = 3.0; // Default rating
-  final TextEditingController _commentController = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Feedback'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Rate our app:'),
-            const SizedBox(height: 10),
-            // Wrap used to prevent overflow issues and align stars properly
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 4.0, // Adjusted space between the stars
-              children: List.generate(5, (index) {
-                return IconButton(
-                  icon: Icon(
-                    index < _rating ? Icons.star : Icons.star_border,
-                    color: Colors.orange,
-                    size: 30, // Adjusted icon size for better fitting
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _rating = index + 1.0;
-                    });
-                  },
-                );
-              }),
-            ),
-            const SizedBox(height: 10),
-            // Comment Input Field
-            TextField(
-              controller: _commentController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'Leave a comment...',
+              style: TextStyle(
+                fontSize: 16,
+                color: isDarkTheme ? Colors.white : Colors.black,
               ),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context); // Close dialog
-          },
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            final feedback = {
-              'rating': _rating,
-              'comment': _commentController.text,
-            };
-            // Print feedback to console (replace with actual submission logic)
-            print('Feedback submitted: $feedback');
-            Navigator.pop(context);
-          },
-          child: const Text('Submit'),
-        ),
-      ],
     );
   }
 }

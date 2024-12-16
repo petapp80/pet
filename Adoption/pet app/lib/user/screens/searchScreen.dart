@@ -43,6 +43,12 @@ class _SearchscreenState extends State<Searchscreen> {
               decoration: InputDecoration(
                 labelText: 'Search',
                 hintText: 'Type to search...',
+                labelStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                hintStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.0),
                 ),
@@ -77,7 +83,7 @@ class _SearchscreenState extends State<Searchscreen> {
                     margin: const EdgeInsets.symmetric(vertical: 8.0),
                     padding: const EdgeInsets.all(12.0),
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
+                      color: Theme.of(context).colorScheme.surfaceVariant,
                       borderRadius: BorderRadius.circular(8.0),
                     ),
                     child: Column(
@@ -97,31 +103,17 @@ class _SearchscreenState extends State<Searchscreen> {
                                     size: 100, color: Colors.grey);
                               },
                             ),
-                            // Add a semi-transparent overlay if needed
-                            /*Container(
-                              height: 180,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.black.withOpacity(0.5),
-                                    Colors.transparent,
-                                  ],
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                ),
-                              ),
-                            ),*/
                           ],
                         ),
                         const SizedBox(height: 10),
 
-                        // Displaying the title text
+                        // Displaying the title text with dynamic color
                         Text(
                           item["title"]!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ],

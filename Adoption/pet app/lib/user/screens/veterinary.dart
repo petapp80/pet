@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/appointmentScreen.dart';
-import 'package:flutter_application_1/user/screens/appointmentScreen.dart';
-import 'package:flutter_application_1/user/screens/chatDetailScreen.dart';
-import 'package:flutter_application_1/user/screens/productScreen.dart';
-import 'package:flutter_application_1/user/screens/profile.dart'; // Import ProfileScreen from the correct file
-import 'package:flutter_application_1/user/screens/messageScreen.dart'; // Import your existing MessageScreen
+import 'package:flutter_application_1/user/screens/profile.dart';
+import 'package:flutter_application_1/user/screens/messageScreen.dart';
+
+import 'veterinaryAdd.dart';
 
 class VeterinaryScreen extends StatefulWidget {
   const VeterinaryScreen({super.key});
@@ -14,74 +13,67 @@ class VeterinaryScreen extends StatefulWidget {
 }
 
 class _VeterinaryScreenState extends State<VeterinaryScreen> {
-  // Index to keep track of the selected tab
-  int _selectedIndex = 0;
+  int _selectedIndex = 0; // Index to keep track of the selected tab
+  final List<Widget> _screens = [];
 
-  // Used to track the back button press time
-  DateTime? _lastPressedAt;
+  @override
+  void initState() {
+    super.initState();
+    final String fromScreen = 'VeterinaryScreen';
+    _screens.addAll([
+      const Messagescreen(),
+      const AppointmentScreen(),
+      VeterinaryAddScreen(
+          fromScreen: fromScreen), // Pass the fromScreen argument
+      const ProfileScreen(),
+    ]);
+  }
 
   // Function to handle bottom navigation bar item taps
   void _onItemTapped(int index) {
     setState(() {
-      _selectedIndex = index; // Update index to show the relevant screen
+      _selectedIndex = index; // Update the index to change the screen
     });
-  }
-
-  // Function to handle back button press (exit confirmation)
-  Future<bool> _onWillPop() async {
-    DateTime currentTime = DateTime.now();
-    bool backButtonExit = _lastPressedAt == null ||
-        currentTime.difference(_lastPressedAt!) > const Duration(seconds: 2);
-
-    if (backButtonExit) {
-      _lastPressedAt = currentTime;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Press again to exit'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return false;
-    } else {
-      return true;
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _onWillPop,
-      child: Scaffold(
-        body: IndexedStack(
-          index: _selectedIndex, // Show the selected tab based on index
-          children: <Widget>[
-            const Messagescreen(), // Make sure this screen is properly referenced
-            const AppointmentScreen(), // Your existing AppointmentScreen
-            const ProfileScreen(), // Your ProfileScreen
-          ],
+    return Scaffold(
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, animation) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        child: IndexedStack(
+          index: _selectedIndex,
+          key: ValueKey<int>(_selectedIndex), // Important for AnimatedSwitcher
+          children: _screens,
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex, // Set the current selected index
-          onTap: _onItemTapped, // Handle item taps
-          backgroundColor:
-              Colors.teal, // Bottom navigation bar background color
-          selectedItemColor: Colors.blue, // Change selected item color to blue
-          unselectedItemColor: Colors.grey, // Color for unselected items
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: Icon(Icons.message),
-              label: 'Messages',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.event),
-              label: 'Appointments',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_circle),
-              label: 'Profile',
-            ),
-          ],
-        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex, // Set the current selected index
+        onTap: _onItemTapped, // Handle item taps
+        backgroundColor: Colors.teal, // Bottom navigation bar background color
+        selectedItemColor: Colors.blue, // Change selected item color to blue
+        unselectedItemColor: Colors.grey, // Color for unselected items
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.message),
+            label: 'Messages',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.event),
+            label: 'Appointments',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle, size: 40), // "+" icon
+            label: 'Add',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_circle),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
   }
