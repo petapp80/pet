@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:share/share.dart';
 import 'package:flutter_application_1/user/screens/chatDetailScreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -147,15 +146,6 @@ class DetailScreen extends StatelessWidget {
                     },
                     icon: const Icon(Icons.shopping_cart_outlined),
                     color: Theme.of(context).colorScheme.tertiary,
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      final shareText =
-                          '${data['text']}\n\n${data['description']}\n\nLocation: ${data['location']}';
-                      Share.share(shareText);
-                    },
-                    icon: const Icon(Icons.share_outlined),
-                    color: Theme.of(context).colorScheme.secondary,
                   ),
                 ],
               ),

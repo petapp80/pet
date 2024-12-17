@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/chatDetailScreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:share/share.dart';
 import 'floatingbttn.dart';
 import 'productScreen.dart';
 import 'profile.dart';
@@ -141,7 +140,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         child: Text('Error fetching user data'));
                   } else if (!userSnapshot.hasData ||
                       !userSnapshot.data!.exists) {
-                    return const Center(child: Text('User not found'));
+                    return const SizedBox
+                        .shrink(); // Hide the tile if user is not found
                   } else {
                     final userData =
                         userSnapshot.data!.data() as Map<String, dynamic>;
@@ -160,7 +160,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     data['about'] ?? 'No description',
                                 'location':
                                     data['location'] ?? 'Unknown location',
-                                'published': 'Unknown time',
+                                'published':
+                                    data['published'] ?? 'Unknown time',
                                 'profileImage': userData['profileImage'] ?? '',
                                 'profileImagePublicId':
                                     userData['profileImagePublicId'] ?? '',
@@ -178,7 +179,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         text: data[nameField] ?? 'Unknown',
                         description: data['about'] ?? 'No description',
                         location: data['location'] ?? 'Unknown location',
-                        published: 'Unknown time',
+                        published: data['published'] ?? 'Unknown time',
                         profileImage: userData['profileImage'] ?? '',
                         profileImagePublicId:
                             userData['profileImagePublicId'] ?? '',
@@ -240,6 +241,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
             ),
           ),
+          const SizedBox(height: 8), // Added space above the description
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Text(
@@ -272,20 +274,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 const Spacer(),
                 IconButton(
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChatDetailScreen(
-                          name: profileName,
-                          image: profileImage,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.message_outlined),
-                ),
-                IconButton(
-                  onPressed: () {
                     addItemToCart({
                       'id': id,
                       'collection': collection,
@@ -304,14 +292,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     );
                   },
                   icon: const Icon(Icons.shopping_cart_outlined),
-                ),
-                IconButton(
-                  onPressed: () {
-                    final shareText =
-                        '$text\n\n$description\n\nLocation: $location';
-                    Share.share(shareText);
-                  },
-                  icon: const Icon(Icons.share_outlined),
                 ),
               ],
             ),

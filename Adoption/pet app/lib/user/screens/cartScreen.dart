@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:share/share.dart';
 import 'package:flutter_application_1/user/screens/chatDetailScreen.dart';
 
 class CartScreen extends StatefulWidget {
@@ -159,15 +158,6 @@ class _CartScreenState extends State<CartScreen> {
                                     icon: const Icon(Icons.message_outlined),
                                     color:
                                         Theme.of(context).colorScheme.primary,
-                                  ),
-                                  IconButton(
-                                    onPressed: () {
-                                      final shareText =
-                                          '${item["text"]}\n\n${item["description"]}\n\nLocation: ${item["location"]}';
-                                      Share.share(shareText);
-                                    },
-                                    icon: const Icon(Icons.share_outlined),
-                                    color: Colors.blue,
                                   ),
                                 ],
                               ),
