@@ -137,9 +137,10 @@ class _EditProfileState extends State<EditProfile> {
       }
 
       if (context.mounted) {
-        Navigator.push(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const ProfileScreen()),
+          (Route<dynamic> route) => false,
         );
       }
     } catch (error) {

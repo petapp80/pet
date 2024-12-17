@@ -252,7 +252,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.logout,
             title: 'Logout',
             isDarkTheme: _isDarkTheme,
-            onTap: () {
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => const LoginPage()),

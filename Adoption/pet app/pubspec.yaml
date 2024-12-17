@@ -36,6 +36,8 @@ dependencies:
   cloudinary_flutter: ^1.0.0
   cloudinary_url_gen: ^1.0.0
   http: ^1.2.2
+  share: ^2.0.4
+
 
 
 

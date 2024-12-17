@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/chatDetailScreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:share/share.dart';
 import 'floatingbttn.dart';
 import 'productScreen.dart';
 import 'profile.dart';
@@ -10,7 +11,8 @@ import 'messageScreen.dart';
 import 'searchScreen.dart';
 import 'addScreen.dart';
 import 'veterinary.dart';
-import 'veterinaryAdd.dart'; // Import the VeterinaryAddScreen
+import 'veterinaryAdd.dart';
+import 'detailScreen.dart'; // Import the DetailScreen
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,51 +25,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _selectedIndex = 2;
   DateTime? lastBackPressed;
   String? _userPosition;
-
-  // Sample data for suggestions
-  final List<Map<String, String>> _suggestions = [
-    {
-      "image": "asset/image/dog1.png",
-      "text": "Suggestion 1",
-      "description": "This is a description for Suggestion 1.",
-      "location": "Location 1",
-      "published": "2 days ago",
-      "profileName": "John Doe"
-    },
-    {
-      "image": "asset/image/dog2.png",
-      "text": "Suggestion 2",
-      "description": "This is a description for Suggestion 2.",
-      "location": "Location 2",
-      "published": "1 week ago",
-      "profileName": "Jane Smith"
-    },
-    {
-      "image": "asset/image/dog1.png",
-      "text": "Suggestion 3",
-      "description": "This is a description for Suggestion 3.",
-      "location": "Location 3",
-      "published": "1 month ago",
-      "profileName": "Alice Brown"
-    },
-    {
-      "image": "asset/image/dog1.png",
-      "text": "Suggestion 4",
-      "description": "This is a description for Suggestion 4.",
-      "location": "Location 4",
-      "published": "3 months ago",
-      "profileName": "Bob Johnson"
-    },
-  ];
-
   late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
-    // Fetch user position
     _fetchUserPosition();
-    // Initialize the screens without depending on context
     _screens = [
       const Messagescreen(),
       const Searchscreen(),
@@ -93,224 +56,290 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Update the third screen now that context is available
     setState(() {
       _screens[2] = _buildHomeScreen();
     });
   }
 
   Widget _buildHomeScreen() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Suggestions',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Pets',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildSection('pets', 'petType'),
+              const SizedBox(height: 16),
+              const Text(
+                'Products',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildSection('products', 'productName'),
+              const SizedBox(height: 16),
+              const Text(
+                'Veterinary',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildSection('Veterinary', 'name'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(String collection, String nameField) {
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance.collection(collection).limit(5).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return const Center(child: Text('Error fetching data'));
+        } else if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text('No data found'));
+        } else {
+          return Column(
+            children: snapshot.data!.docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance
+                    .collection('user')
+                    .doc(data['userId'])
+                    .get(),
+                builder: (context, userSnapshot) {
+                  if (userSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (userSnapshot.hasError) {
+                    return const Center(
+                        child: Text('Error fetching user data'));
+                  } else if (!userSnapshot.hasData ||
+                      !userSnapshot.data!.exists) {
+                    return const Center(child: Text('User not found'));
+                  } else {
+                    final userData =
+                        userSnapshot.data!.data() as Map<String, dynamic>;
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailScreen(
+                              data: {
+                                'id': doc.id,
+                                'collection': collection,
+                                'image': data['imageUrl'] ?? '',
+                                'text': data[nameField] ?? 'Unknown',
+                                'description':
+                                    data['about'] ?? 'No description',
+                                'location':
+                                    data['location'] ?? 'Unknown location',
+                                'published': 'Unknown time',
+                                'profileImage': userData['profileImage'] ?? '',
+                                'profileImagePublicId':
+                                    userData['profileImagePublicId'] ?? '',
+                                'profileName':
+                                    userData['name'] ?? 'Unknown user',
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                      child: _buildTile(
+                        id: doc.id,
+                        collection: collection,
+                        image: data['imageUrl'] ?? '',
+                        text: data[nameField] ?? 'Unknown',
+                        description: data['about'] ?? 'No description',
+                        location: data['location'] ?? 'Unknown location',
+                        published: 'Unknown time',
+                        profileImage: userData['profileImage'] ?? '',
+                        profileImagePublicId:
+                            userData['profileImagePublicId'] ?? '',
+                        profileName: userData['name'] ?? 'Unknown user',
+                      ),
+                    );
+                  }
+                },
+              );
+            }).toList(),
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildTile({
+    required String id,
+    required String collection,
+    required String image,
+    required String text,
+    required String description,
+    required String location,
+    required String published,
+    required String profileImage,
+    required String profileImagePublicId,
+    required String profileName,
+  }) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 10.6),
-          Text(
-            'Suggestions',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(8),
+            ),
+            child: image.isNotEmpty
+                ? Image.network(
+                    image,
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.broken_image, size: 50),
+                  )
+                : const Icon(Icons.broken_image, size: 50),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _handleRefresh,
-              child: ListView.builder(
-                itemCount: _suggestions.length,
-                itemBuilder: (context, index) {
-                  final suggestion = _suggestions[index];
-                  final isSpecial = index == 2;
-
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    color: isSpecial
-                        ? Theme.of(context).colorScheme.secondaryContainer
-                        : Theme.of(context).colorScheme.surface,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (isSpecial)
-                          Container(
-                            padding: const EdgeInsets.all(8.0),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.secondary,
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(8),
-                              ),
-                            ),
-                            child: Text(
-                              'Verified Organization',
-                              style: TextStyle(
-                                color:
-                                    Theme.of(context).colorScheme.onSecondary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(8),
-                          ),
-                          child: Image.asset(
-                            suggestion["image"]!,
-                            height: 150,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.broken_image, size: 50),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Text(
-                            suggestion["text"]!,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                          child: Text(
-                            suggestion["description"]!,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                          child: Row(
-                            children: [
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundImage:
-                                        AssetImage(suggestion["image"]!),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    suggestion["profileName"]!,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ChatDetailScreen(
-                                        name: suggestion["profileName"]!,
-                                        image: suggestion["image"]!,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.message_outlined),
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              IconButton(
-                                onPressed: () {
-                                  addItemToCart(suggestion);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '${suggestion["text"]} added to cart',
-                                      ),
-                                      duration: const Duration(seconds: 1),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.shopping_cart_outlined),
-                                color: Theme.of(context).colorScheme.tertiary,
-                              ),
-                              IconButton(
-                                onPressed: () {
-                                  final shareText =
-                                      '${suggestion["text"]}\n\n${suggestion["description"]}';
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Share'),
-                                      content:
-                                          Text('You are sharing: \n$shareText'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                          child: const Text('Close'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.share_outlined),
-                                color: Theme.of(context).colorScheme.secondary,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                          child: Text(
-                            'Published: ${suggestion["published"]!}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding:
-                              const EdgeInsets.only(left: 12.0, bottom: 12.0),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.location_on,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                suggestion["location"]!,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Text(
+              description,
+              style: const TextStyle(
+                fontSize: 14,
               ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundImage: profileImage.isNotEmpty
+                      ? NetworkImage(profileImage)
+                      : const AssetImage('asset/image/dog1.png')
+                          as ImageProvider,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  profileName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatDetailScreen(
+                          name: profileName,
+                          image: profileImage,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.message_outlined),
+                ),
+                IconButton(
+                  onPressed: () {
+                    addItemToCart({
+                      'id': id,
+                      'collection': collection,
+                      'image': image,
+                      'text': text,
+                      'description': description,
+                      'location': location,
+                      'published': published,
+                      'profileName': profileName,
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('$text added to cart'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.shopping_cart_outlined),
+                ),
+                IconButton(
+                  onPressed: () {
+                    final shareText =
+                        '$text\n\n$description\n\nLocation: $location';
+                    Share.share(shareText);
+                  },
+                  icon: const Icon(Icons.share_outlined),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Text(
+              'Published: $published',
+              style: const TextStyle(
+                fontSize: 12,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 12.0, bottom: 12.0),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.location_on,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  location,
+                  style: const TextStyle(
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -318,8 +347,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  void addItemToCart(Map<String, String> item) {
-    print('Item added to cart: ${item["text"]}');
+  void addItemToCart(Map<String, String> item) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final cartItem = {
+      'id': item['id'],
+      'collection': item['collection'],
+      'image': item['image'],
+      'text': item['text'],
+      'description': item['description'],
+      'location': item['location'],
+      'published': item['published'],
+      'profileName': item['profileName'],
+      'addedAt': FieldValue.serverTimestamp(),
+    };
+
+    await FirebaseFirestore.instance
+        .collection('user')
+        .doc(userId)
+        .collection('CartList')
+        .doc(item['id'])
+        .set(cartItem);
   }
 
   Future<void> _handleRefresh() async {
@@ -427,7 +476,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => AddItemScreen()),
+            MaterialPageRoute(builder: (context) => const AddItemScreen()),
           );
         },
         backgroundColor: Theme.of(context).colorScheme.primary,
