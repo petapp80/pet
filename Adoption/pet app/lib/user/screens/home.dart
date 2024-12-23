@@ -31,11 +31,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.initState();
     _fetchUserPosition();
     _screens = [
-      const Messagescreen(),
-      const Searchscreen(),
+      const Messagescreen(navigationSource: 'HomePage'),
+      const Searchscreen(navigationSource: 'HomePage'),
       Container(), // Placeholder, _buildHomeScreen will be rebuilt later
-      const CartScreen(),
-      const ProfileScreen(),
+      const CartScreen(navigationSource: 'HomePage'),
+      const ProfileScreen(navigationSource: 'HomePage'),
     ];
   }
 
@@ -163,11 +163,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 'published':
                                     data['published'] ?? 'Unknown time',
                                 'profileImage': userData['profileImage'] ?? '',
-                                'profileImagePublicId':
-                                    userData['profileImagePublicId'] ?? '',
                                 'profileName':
                                     userData['name'] ?? 'Unknown user',
+                                'userId': data['userId'],
+                                // Include additional fields as necessary
+                                'age': data['age'],
+                                'breed': data['breed'],
+                                'colour': data['colour'],
+                                'price': data['price'],
+                                'sex': data['sex'],
+                                'weight': data['weight'],
+                                'quantity': data['quantity'],
+                                'experience': data['experience'],
+                                'availability': data['availability'],
                               },
+                              navigationSource: 'HomePage',
                             ),
                           ),
                         );
@@ -181,9 +191,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         location: data['location'] ?? 'Unknown location',
                         published: data['published'] ?? 'Unknown time',
                         profileImage: userData['profileImage'] ?? '',
-                        profileImagePublicId:
-                            userData['profileImagePublicId'] ?? '',
                         profileName: userData['name'] ?? 'Unknown user',
+                        userId: data['userId'],
                       ),
                     );
                   }
@@ -205,8 +214,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     required String location,
     required String published,
     required String profileImage,
-    required String profileImagePublicId,
     required String profileName,
+    required String userId,
   }) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -241,7 +250,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
             ),
           ),
-          const SizedBox(height: 8), // Added space above the description
+          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Text(
@@ -262,7 +271,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   backgroundImage: profileImage.isNotEmpty
                       ? NetworkImage(profileImage)
                       : const AssetImage('asset/image/dog1.png')
-                          as ImageProvider,
+                          as ImageProvider<Object>,
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -283,6 +292,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       'location': location,
                       'published': published,
                       'profileName': profileName,
+                      'userId': userId,
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -340,6 +350,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       'location': item['location'],
       'published': item['published'],
       'profileName': item['profileName'],
+      'userId': item['userId'], // Add userId to the cart item
       'addedAt': FieldValue.serverTimestamp(),
     };
 
@@ -434,7 +445,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const ProductsScreen()),
+            MaterialPageRoute(
+                builder: (context) =>
+                    const ProductsScreen(navigationSource: 'HomePage')),
           );
         },
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -445,7 +458,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const VeterinaryScreen()),
+            MaterialPageRoute(
+                builder: (context) =>
+                    const VeterinaryScreen(navigationSource: 'HomePage')),
           );
         },
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -456,7 +471,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const AddItemScreen()),
+            MaterialPageRoute(
+                builder: (context) =>
+                    const AddItemScreen(navigationSource: 'HomePage')),
           );
         },
         backgroundColor: Theme.of(context).colorScheme.primary,

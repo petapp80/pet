@@ -23,11 +23,9 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       try {
         // Add the review to Firestore
         await FirebaseFirestore.instance.collection('review').add({
-          'name': user.displayName ??
-              'Anonymous', // Default to 'Anonymous' if no name
-          'email': user.email ?? 'no-email@example.com', // Default if no email
-          'rating': _rating,
-          'feedback': _feedbackController.text,
+          'userId': user.uid, // User ID
+          'rating': _rating, // Rating value
+          'text': _feedbackController.text, // Feedback text
           'timestamp': FieldValue.serverTimestamp(),
         });
 

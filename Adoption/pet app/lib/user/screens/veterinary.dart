@@ -2,26 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/appointmentScreen.dart';
 import 'package:flutter_application_1/user/screens/profile.dart';
 import 'package:flutter_application_1/user/screens/messageScreen.dart';
-
 import 'veterinaryAdd.dart';
 
 class VeterinaryScreen extends StatefulWidget {
-  const VeterinaryScreen({super.key});
+  final String? navigationSource; // Make this parameter optional
+
+  const VeterinaryScreen(
+      {super.key, this.navigationSource}); // Update the constructor
 
   @override
   State<VeterinaryScreen> createState() => _VeterinaryScreenState();
 }
 
 class _VeterinaryScreenState extends State<VeterinaryScreen> {
-  int _selectedIndex = 0; // Index to keep track of the selected tab
+  int _selectedIndex = 1; // Index to keep track of the selected tab
   final List<Widget> _screens = [];
 
   @override
   void initState() {
     super.initState();
-    final String fromScreen = 'VeterinaryScreen';
+    final String fromScreen = widget.navigationSource ??
+        'VeterinaryScreen'; // Use the passed value or default
     _screens.addAll([
-      const Messagescreen(),
+      Messagescreen(navigationSource: 'VeterinaryScreen'),
       const AppointmentScreen(),
       VeterinaryAddScreen(
           fromScreen: fromScreen), // Pass the fromScreen argument

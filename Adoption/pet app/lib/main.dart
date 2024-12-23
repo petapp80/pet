@@ -12,6 +12,7 @@ import 'user/screens/editProfile.dart';
 import 'user/screens/floatingbttn.dart';
 import 'user/screens/productScreen.dart';
 import 'user/screens/home.dart';
+import 'user/screens/splashScreen.dart';
 import 'user/screens/themeProvider.dart'; // Import the ThemeProvider
 
 void main() async {
@@ -49,7 +50,7 @@ class MyApp extends StatelessWidget {
             theme: themeProvider.isDarkTheme
                 ? ThemeData.dark()
                 : ThemeData.light(),
-            home: const SignUpPage(), // Replace with your starting page
+            home: LoginPage(), // Replace with your starting page
           );
         },
       ),

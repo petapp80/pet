@@ -7,7 +7,10 @@ import 'package:flutter_application_1/user/screens/profile.dart';
 import 'package:flutter_application_1/user/screens/messageScreen.dart';
 
 class ProductsScreen extends StatefulWidget {
-  const ProductsScreen({super.key});
+  final String? navigationSource; // Make this parameter optional
+
+  const ProductsScreen(
+      {super.key, this.navigationSource}); // Update the constructor
 
   @override
   State<ProductsScreen> createState() => _ProductsScreenState();
@@ -72,67 +75,74 @@ class _ProductsScreenState extends State<ProductsScreen>
   @override
   Widget build(BuildContext context) {
     // Define the argument to pass
-    final String fromScreen = 'ProductsScreen';
+    final String fromScreen = widget.navigationSource ??
+        'ProductsScreen'; // Use the passed value or default
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Product & Pets'),
-        bottom: _selectedIndex == 1 // Only show the TabBar if "Add" is selected
-            ? TabBar(
-                controller:
-                    _tabController, // Use the TabController to manage tabs
-                onTap: (index) {
-                  setState(() {
-                    _tabIndex = index; // Update tab index when tapping
-                  });
-                },
-                tabs: const [
-                  Tab(text: 'Products'),
-                  Tab(text: 'Pets'),
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Product & Pets'),
+          bottom:
+              _selectedIndex == 1 // Only show the TabBar if "Add" is selected
+                  ? TabBar(
+                      controller:
+                          _tabController, // Use the TabController to manage tabs
+                      onTap: (index) {
+                        setState(() {
+                          _tabIndex = index; // Update tab index when tapping
+                        });
+                      },
+                      tabs: const [
+                        Tab(text: 'Products'),
+                        Tab(text: 'Pets'),
+                      ],
+                    )
+                  : null,
+        ),
+        body: _selectedIndex == 1
+            ? IndexedStack(
+                index: _tabIndex, // Switch between Product and Pets screens
+                children: [
+                  ProductsAddScreen(
+                      fromScreen:
+                          fromScreen), // Products Add Screen with argument
+                  AddScreen(
+                      fromScreen: fromScreen), // Pets Add Screen with argument
                 ],
               )
-            : null,
-      ),
-      body: _selectedIndex == 1
-          ? IndexedStack(
-              index: _tabIndex, // Switch between Product and Pets screens
-              children: [
-                ProductsAddScreen(
-                    fromScreen:
-                        fromScreen), // Products Add Screen with argument
-                AddScreen(
-                    fromScreen: fromScreen), // Pets Add Screen with argument
-              ],
-            )
-          : _selectedIndex == 0
-              ? const Messagescreen() // Messages Screen
-              : _selectedIndex == 2
-                  ? const ProductCartScreen() // Cart Screen
-                  : const ProfileScreen(), // Profile Screen
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        backgroundColor: Colors.teal,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.message),
-            label: 'Messages',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add),
-            label: 'Add',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_circle),
-            label: 'Profile',
-          ),
-        ],
+            : _selectedIndex == 0
+                ? Messagescreen(
+                    navigationSource:
+                        fromScreen) // Messages Screen with argument
+                : _selectedIndex == 2
+                    ? const ProductCartScreen() // Cart Screen
+                    : const ProfileScreen(), // Profile Screen
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          backgroundColor: Colors.teal,
+          selectedItemColor: Colors.blue,
+          unselectedItemColor: Colors.grey,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.message),
+              label: 'Messages',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.add),
+              label: 'Add',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.shopping_cart),
+              label: 'Cart',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.account_circle),
+              label: 'Profile',
+            ),
+          ],
+        ),
       ),
     );
   }

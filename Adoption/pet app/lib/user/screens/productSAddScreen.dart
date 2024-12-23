@@ -10,8 +10,13 @@ import 'home.dart'; // Import the HomePage
 
 class ProductsAddScreen extends StatefulWidget {
   final String fromScreen;
+  final String? docId; // Make docId optional
 
-  const ProductsAddScreen({required this.fromScreen, super.key});
+  const ProductsAddScreen({
+    required this.fromScreen,
+    this.docId, // Make this optional
+    super.key,
+  });
 
   @override
   State<ProductsAddScreen> createState() => _ProductsAddScreenState();
@@ -22,9 +27,45 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
   TextEditingController _descriptionController = TextEditingController();
   TextEditingController _locationController = TextEditingController();
   TextEditingController _priceController = TextEditingController();
+  TextEditingController _quantityController = TextEditingController();
 
   String _selectedCurrency = 'USD';
   File? _image;
+  String? _existingImageUrl;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.docId != null && widget.docId!.isNotEmpty) {
+      _fetchProductData();
+    }
+  }
+
+  Future<void> _fetchProductData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final doc = await FirebaseFirestore.instance
+        .collection('products')
+        .doc(widget.docId)
+        .get();
+    final data = doc.data();
+    if (data != null) {
+      _productNameController.text = data['productName'];
+      _descriptionController.text = data['description'];
+      _locationController.text = data['location'];
+      _priceController.text = data['price'].split(' ')[1];
+      _selectedCurrency = data['price'].split(' ')[0];
+      _quantityController.text = data['quantity'];
+      _existingImageUrl = data['imageUrl'];
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
   Future<void> _pickImage() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -35,6 +76,7 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
     if (result != null) {
       setState(() {
         _image = File(result.files.single.path!);
+        _existingImageUrl = null; // Reset existing image if a new one is picked
       });
     }
   }
@@ -42,6 +84,7 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
   void _removeImage() {
     setState(() {
       _image = null;
+      _existingImageUrl = null;
     });
   }
 
@@ -95,7 +138,8 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
         _descriptionController.text.isEmpty ||
         _locationController.text.isEmpty ||
         _priceController.text.isEmpty ||
-        _image == null) {
+        _quantityController.text.isEmpty ||
+        (_image == null && _existingImageUrl == null)) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -118,7 +162,7 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
 
-      String? imageUrl;
+      String? imageUrl = _existingImageUrl;
       String? imagePublicId;
 
       if (_image != null) {
@@ -136,35 +180,50 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
         'description': _descriptionController.text,
         'location': _locationController.text,
         'price': '${_selectedCurrency} ${_priceController.text}',
+        'quantity': _quantityController.text,
         'imageUrl': imageUrl,
         'imagePublicId': imagePublicId,
+        'publishedTime': FieldValue.serverTimestamp(), // Add published time
       };
 
-      await FirebaseFirestore.instance.collection('products').add(productData);
+      if (widget.docId == null || widget.docId!.isEmpty) {
+        await FirebaseFirestore.instance
+            .collection('products')
+            .add(productData);
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(userId)
+            .collection('products')
+            .add(productData);
+      } else {
+        await FirebaseFirestore.instance
+            .collection('products')
+            .doc(widget.docId)
+            .update(productData);
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(userId)
+            .collection('products')
+            .doc(widget.docId)
+            .update(productData);
+      }
 
-      await FirebaseFirestore.instance
-          .collection('user')
-          .doc(userId)
-          .collection('products')
-          .add(productData);
-
-      // Update the user's position in Firestore
-      await FirebaseFirestore.instance.collection('user').doc(userId).update({
-        'position': 'Buyer-Seller',
-      });
-
-      print("Product added: $productData");
+      print(
+          "Product ${widget.docId == null || widget.docId!.isEmpty ? 'added' : 'updated'}: $productData");
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Product Published Successfully!')),
       );
 
-      // Navigate to HomePage or the screen you want
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => HomePage()),
-        (route) => false,
-      );
+      if (widget.fromScreen == 'AddItemScreen') {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+          (route) => false,
+        );
+      } else {
+        Navigator.pop(context);
+      }
     } catch (error) {
       print('Error publishing product: $error');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -179,112 +238,131 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
       appBar: AppBar(
         title: const Text('Add Product'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              TextField(
-                controller: _productNameController,
-                decoration: InputDecoration(
-                  labelText: 'Product Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _descriptionController,
-                maxLines: 5,
-                decoration: InputDecoration(
-                  labelText: 'Product Description',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _locationController,
-                decoration: InputDecoration(
-                  labelText: 'Location',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  DropdownButton<String>(
-                    value: _selectedCurrency,
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedCurrency = newValue!;
-                      });
-                    },
-                    items: <String>['USD', 'INR']
-                        .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextField(
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    TextField(
+                      controller: _productNameController,
                       decoration: InputDecoration(
-                        labelText: 'Price',
+                        labelText: 'Product Name',
                         border: OutlineInputBorder(),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: _pickImage,
-                    child: Text(_image == null ? 'Pick Image' : 'Change Image'),
-                  ),
-                  if (_image != null) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: Stack(
-                        children: [
-                          Image.file(
-                            _image!,
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
-                          ),
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: IconButton(
-                              icon: Icon(Icons.close, color: Colors.red),
-                              onPressed: _removeImage,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _descriptionController,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        labelText: 'Product Description',
+                        border: OutlineInputBorder(),
                       ),
                     ),
-                  ]
-                ],
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _publishProduct,
-                child: Text('Publish'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  minimumSize: Size(double.infinity, 50),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _locationController,
+                      decoration: InputDecoration(
+                        labelText: 'Location',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _quantityController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Quantity',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        DropdownButton<String>(
+                          value: _selectedCurrency,
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedCurrency = newValue!;
+                            });
+                          },
+                          items: <String>['USD', 'INR']
+                              .map<DropdownMenuItem<String>>((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: _priceController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'Price',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: _pickImage,
+                          child: Text(
+                              _image == null ? 'Pick Image' : 'Change Image'),
+                        ),
+                        if (_image != null || _existingImageUrl != null) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(left: 16),
+                            child: Stack(
+                              children: [
+                                _image != null
+                                    ? Image.file(
+                                        _image!,
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Image.network(
+                                        _existingImageUrl!,
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                      ),
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  child: IconButton(
+                                    icon: Icon(Icons.close, color: Colors.red),
+                                    onPressed: _removeImage,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ]
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _publishProduct,
+                      child: Text('Publish'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        minimumSize: Size(double.infinity, 50),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

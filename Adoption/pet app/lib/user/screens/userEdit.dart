@@ -1,18 +1,14 @@
-import 'package:file_picker/file_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class UserEdit extends StatefulWidget {
   final String name;
-  final String description;
-  final bool isUser; // Flag to check if it's a user or a pet
-  final Map<String, String>? petData; // Pet data to pre-fill if editing a pet
+  final String email;
 
   const UserEdit({
     super.key,
     required this.name,
-    required this.description,
-    required this.isUser,
-    this.petData, // Optional pet data
+    required this.email,
   });
 
   @override
@@ -20,46 +16,86 @@ class UserEdit extends StatefulWidget {
 }
 
 class _UserEditState extends State<UserEdit> {
-  String profileImageUrl =
-      'https://www.w3schools.com/w3images/avatar2.png'; // Default image
-
-  // Controllers for both user and pet fields
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-
-  // Pet-specific fields
-  final TextEditingController _petTypeController = TextEditingController();
-  final TextEditingController _breedController = TextEditingController();
-  final TextEditingController _ageController = TextEditingController();
-  final TextEditingController _sexController = TextEditingController();
-  final TextEditingController _colorController = TextEditingController();
-  final TextEditingController _weightController = TextEditingController();
-  final TextEditingController _locationController = TextEditingController();
-  final TextEditingController _priceController = TextEditingController();
-  final TextEditingController _aboutController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
 
   bool nameEditMode = false;
-  bool descriptionEditMode = false;
-  bool petEditMode = false;
+  bool emailEditMode = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize text fields with the data passed from the previous screen
     _nameController.text = widget.name;
-    _descriptionController.text = widget.description;
+    _emailController.text = widget.email;
+  }
 
-    if (!widget.isUser && widget.petData != null) {
-      // Pre-fill pet data if it's a pet
-      _petTypeController.text = widget.petData?['type'] ?? '';
-      _breedController.text = widget.petData?['breed'] ?? '';
-      _ageController.text = widget.petData?['age'] ?? '';
-      _sexController.text = widget.petData?['sex'] ?? '';
-      _colorController.text = widget.petData?['color'] ?? '';
-      _weightController.text = widget.petData?['weight'] ?? '';
-      _locationController.text = widget.petData?['location'] ?? '';
-      _priceController.text = widget.petData?['price'] ?? '';
-      _aboutController.text = widget.petData?['about'] ?? '';
+  // Function to save changes
+  Future<void> _saveChanges() async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('user')
+          .doc(widget.name)
+          .update({
+        'name': _nameController.text,
+        'email': _emailController.text,
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Changes saved successfully!')),
+      );
+    } catch (e) {
+      print('Error saving changes: $e');
+    }
+  }
+
+  // Function to delete the user
+  Future<void> _deleteUser() async {
+    try {
+      // Find the document ID using the user name
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('user')
+          .where('name', isEqualTo: widget.name)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // Get the document ID
+        final docId = querySnapshot.docs.first.id;
+
+        // Delete the user document using the document ID
+        await FirebaseFirestore.instance.collection('user').doc(docId).delete();
+        print('User deleted: ${widget.name}');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User deleted successfully')),
+        );
+
+        // Close the current screen and return true to indicate success
+        Navigator.pop(context, true);
+      } else {
+        print('User not found: ${widget.name}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not found')),
+        );
+      }
+    } catch (e) {
+      print('Error deleting user: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting user: $e')),
+      );
+    }
+  }
+
+  // Function to approve the user
+  Future<void> _approveUser() async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('user')
+          .doc(widget.name)
+          .update({'approved': true});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User approved successfully!')),
+      );
+    } catch (e) {
+      print('Error approving user: $e');
     }
   }
 
@@ -67,18 +103,16 @@ class _UserEditState extends State<UserEdit> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isUser ? 'User Edit' : 'Edit Pet'),
+        title: const Text('User Edit'),
         actions: [
-          // Save icon button
           IconButton(
             icon: const Icon(Icons.save),
-            onPressed: _saveChanges, // Save action
+            onPressed: _saveChanges,
             tooltip: 'Save Changes',
           ),
-          // Delete icon button
           IconButton(
             icon: const Icon(Icons.delete),
-            onPressed: _deleteUser, // Action for deleting a user or pet
+            onPressed: _deleteUser,
             tooltip: 'Delete',
           ),
         ],
@@ -95,23 +129,6 @@ class _UserEditState extends State<UserEdit> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Profile Image (User or Pet Image)
-                Center(
-                  child: GestureDetector(
-                    onTap: _selectProfileImage,
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundImage: NetworkImage(profileImageUrl),
-                      child: const Icon(
-                        Icons.camera_alt,
-                        size: 30,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
                 // Name Field
                 _buildLabelTextField(
                   label: 'Name',
@@ -124,54 +141,23 @@ class _UserEditState extends State<UserEdit> {
                   },
                 ),
                 const SizedBox(height: 10),
-
-                // Description Field
+                // Email Field
                 _buildLabelTextField(
-                  label: 'Description',
-                  controller: _descriptionController,
-                  editMode: descriptionEditMode,
+                  label: 'Email',
+                  controller: _emailController,
+                  editMode: emailEditMode,
                   onEditPressed: () {
                     setState(() {
-                      descriptionEditMode = !descriptionEditMode;
+                      emailEditMode = !emailEditMode;
                     });
                   },
-                  maxLines: 5,
                 ),
                 const SizedBox(height: 20),
-
-                // If it's a pet, show the pet-specific fields
-                if (!widget.isUser) ...[
-                  _buildLabelTextField(
-                    label: 'Pet Type',
-                    controller: _petTypeController,
-                    editMode: petEditMode,
-                    onEditPressed: () {
-                      setState(() {
-                        petEditMode = !petEditMode;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  _buildLabelTextField(
-                    label: 'Breed',
-                    controller: _breedController,
-                    editMode: petEditMode,
-                    onEditPressed: () {
-                      setState(() {
-                        petEditMode = !petEditMode;
-                      });
-                    },
-                  ),
-                  // Add other pet fields as necessary...
-                ],
-
-                const SizedBox(height: 20),
-
                 // Approve Button
                 Center(
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.check),
-                    label: Text(widget.isUser ? 'Approve User' : 'Approve Pet'),
+                    label: const Text('Approve User'),
                     onPressed: _approveUser,
                   ),
                 ),
@@ -221,67 +207,6 @@ class _UserEditState extends State<UserEdit> {
           ),
         ),
       ],
-    );
-  }
-
-  // Function to select a new profile image
-  Future<void> _selectProfileImage() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-    );
-
-    if (result != null) {
-      String filePath = result.files.single.path!;
-      setState(() {
-        profileImageUrl = filePath;
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No image selected')),
-      );
-    }
-  }
-
-  // Function to delete the user or pet
-  void _deleteUser() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete'),
-        content: const Text('Are you sure you want to delete this item?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Item deleted successfully')),
-              );
-            },
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Function to save changes
-  void _saveChanges() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Changes saved successfully!')),
-    );
-    // Add logic to save changes to a database or backend.
-  }
-
-  // Function to approve the user or pet
-  void _approveUser() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Approved Successfully')),
     );
   }
 }

@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'profile.dart';
 
 class EditProfile extends StatefulWidget {
   const EditProfile({super.key});
@@ -21,6 +20,8 @@ class _EditProfileState extends State<EditProfile> {
   String? _existingProfileImagePublicId;
 
   bool _isSaveButtonEnabled = false;
+  final TextEditingController _nameController = TextEditingController();
+  final FocusNode _nameFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _EditProfileState extends State<EditProfile> {
         _existingProfileImageUrl = data['profileImage'] as String?;
         _existingProfileImagePublicId = data['profileImagePublicId'] as String?;
         _name = data['name'] as String?;
+        _nameController.text = _name ?? '';
       });
     }
   }
@@ -137,11 +139,7 @@ class _EditProfileState extends State<EditProfile> {
       }
 
       if (context.mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const ProfileScreen()),
-          (Route<dynamic> route) => false,
-        );
+        Navigator.pop(context); // Just pop the screen
       }
     } catch (error) {
       print('Error updating profile: $error');
@@ -179,61 +177,102 @@ class _EditProfileState extends State<EditProfile> {
       appBar: AppBar(
         title: const Text('Edit Profile'),
         centerTitle: true,
+        backgroundColor: Theme.of(context).primaryColor,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 60,
-                  backgroundImage: _selectedProfileImagePath != null
-                      ? FileImage(File(_selectedProfileImagePath!))
-                      : (_existingProfileImageUrl != null
-                              ? NetworkImage(_existingProfileImageUrl!)
-                              : const AssetImage('asset/image/care.jpg'))
-                          as ImageProvider,
-                ),
-                if (_selectedProfileImagePath != null)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red),
-                      onPressed: _cancelImageSelection,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundImage: _selectedProfileImagePath != null
+                        ? FileImage(File(_selectedProfileImagePath!))
+                        : (_existingProfileImageUrl != null
+                                ? NetworkImage(_existingProfileImageUrl!)
+                                : const AssetImage('asset/image/care.jpg'))
+                            as ImageProvider,
+                  ),
+                  if (_selectedProfileImagePath != null)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.red),
+                        onPressed: _cancelImageSelection,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: ElevatedButton.icon(
+                  onPressed: _pickImage,
+                  icon: const Icon(Icons.image, color: Colors.white),
+                  label: const Text('Select Image',
+                      style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(150, 50), // Adjust the width
+                    backgroundColor: Theme.of(context).primaryColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: _pickImage,
-              child: const Text('Select Image'),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: TextEditingController(text: _name),
-              decoration: const InputDecoration(labelText: 'Name'),
-              onChanged: (value) {
-                setState(() {
-                  _name = value.isNotEmpty ? value : null;
-                  _isSaveButtonEnabled = true;
-                });
-              },
-            ),
-            const SizedBox(height: 40),
-            ElevatedButton(
-              onPressed: _isSaveButtonEnabled ? _updateProfile : null,
-              child: const Text('Save'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor:
-                    _isSaveButtonEnabled ? Colors.blue : Colors.grey,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              TextField(
+                controller: _nameController,
+                focusNode: _nameFocusNode,
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _name = value.isNotEmpty ? value : null;
+                    _isSaveButtonEnabled = true;
+                  });
+                },
+                onEditingComplete: () {
+                  _nameFocusNode.unfocus();
+                  setState(() {
+                    _isSaveButtonEnabled = _name != null;
+                  });
+                },
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: _isSaveButtonEnabled ? _updateProfile : null,
+                child:
+                    const Text('Save', style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: _isSaveButtonEnabled
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

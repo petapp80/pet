@@ -11,7 +11,10 @@ import 'reviewScreen.dart';
 import 'settings.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final String? navigationSource; // Make the parameter optional
+
+  const ProfileScreen(
+      {super.key, this.navigationSource}); // Update the constructor
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -147,8 +150,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             profileData['profileImage'].isNotEmpty
                         ? NetworkImage(
                             profileData['profileImage']) // Show uploaded image
-                        : AssetImage(
-                            'asset/image/care.jpg') // Placeholder image
+                        : const AssetImage(
+                            'asset/image/default_profile.png') // Placeholder image
                     ) as ImageProvider,
           ),
           const SizedBox(height: 20),
@@ -168,6 +171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: _isDarkTheme ? Colors.white70 : Colors.grey,
             ),
           ),
+          const SizedBox(height: 30),
           const SizedBox(height: 30),
           _buildProfileOptions(),
         ],

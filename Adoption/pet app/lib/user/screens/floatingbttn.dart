@@ -4,7 +4,10 @@ import 'package:flutter_application_1/user/screens/productsAddScreen.dart';
 import 'veterinaryAdd.dart'; // Import the VeterinaryAddScreen
 
 class AddItemScreen extends StatefulWidget {
-  const AddItemScreen({super.key});
+  final String navigationSource; // Add this line
+
+  const AddItemScreen(
+      {super.key, required this.navigationSource}); // Add this line
 
   @override
   State<AddItemScreen> createState() => _AddItemScreenState();

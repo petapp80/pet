@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:lottie/lottie.dart';
+import 'dart:async'; // Correct import for Timer
 import 'home.dart'; // Import the HomePage
 
 class VeterinaryAddScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
   TextEditingController _experienceController = TextEditingController();
   TextEditingController _aboutController = TextEditingController();
   TextEditingController _priceController = TextEditingController();
+  TextEditingController _appointmentsController = TextEditingController();
 
   // Currency selection
   String _selectedCurrency = 'USD';
@@ -45,6 +47,7 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
   void initState() {
     super.initState();
     _checkExistingProfile();
+    _scheduleDailyReset();
   }
 
   // Function to check if the user has already published a profile
@@ -66,12 +69,57 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
         _aboutController.text = profileData['about'];
         _priceController.text = profileData['price'].toString().split(' ')[1];
         _selectedCurrency = profileData['price'].toString().split(' ')[0];
+        _appointmentsController.text = profileData['appointments'] ?? '';
         _existingImageUrl = profileData['imageUrl'];
       }
     }
     setState(() {
       _isLoading = false;
     });
+  }
+
+  // Function to schedule the daily reset task at midnight
+  void _scheduleDailyReset() {
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final midnight = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+
+    final durationUntilMidnight = midnight.difference(now);
+
+    // Schedule a one-time timer to reset the appointments at midnight
+    Timer(durationUntilMidnight, () {
+      _resetAppointments();
+      // Schedule a daily reset task
+      Timer.periodic(const Duration(days: 1), (timer) {
+        _resetAppointments();
+      });
+    });
+  }
+
+  // Function to reset the appointments in Firestore
+  Future<void> _resetAppointments() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final profileDocRef = FirebaseFirestore.instance
+        .collection('Veterinary')
+        .doc(_profileId ?? userId);
+
+    await profileDocRef.update({
+      'appointments': '0',
+    });
+
+    final userProfileDocRef = FirebaseFirestore.instance
+        .collection('user')
+        .doc(userId)
+        .collection('Veterinary')
+        .doc(_profileId ?? userId);
+
+    await userProfileDocRef.update({
+      'appointments': '0',
+    });
+
+    print("Appointments reset at midnight");
   }
 
   // Function to pick an image using FilePicker
@@ -149,12 +197,17 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
         _locationController.text.isEmpty ||
         _experienceController.text.isEmpty ||
         _aboutController.text.isEmpty ||
-        _priceController.text.isEmpty) {
+        _priceController.text.isEmpty ||
+        _appointmentsController.text.isEmpty ||
+        int.parse(_appointmentsController.text) > 30) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: Text('Error'),
-          content: Text('All fields are mandatory! Please fill them all.'),
+          content: Text(_appointmentsController.text.isEmpty ||
+                  int.parse(_appointmentsController.text) > 30
+              ? 'The number of appointments per day must be a valid number and less than 30.'
+              : 'All fields are mandatory! Please fill them all.'),
           actions: <Widget>[
             TextButton(
               onPressed: () {
@@ -193,12 +246,14 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
         'experience': _experienceController.text,
         'about': _aboutController.text,
         'price': '${_selectedCurrency} ${_priceController.text}',
+        'appointments': _appointmentsController.text,
         'imageUrl': imageUrl ?? '',
         'imagePublicId': imagePublicId ?? '',
+        'publishedTime': FieldValue.serverTimestamp(), // Add published time
       };
 
       if (_profileId == null) {
-        // Add veterinary profile data to Firestore in the 'Veterinary' collection
+        // Add veterinary profile data to Firestore
         await FirebaseFirestore.instance.collection('Veterinary').add(vetData);
       } else {
         // Update existing veterinary profile data in Firestore
@@ -229,12 +284,16 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
             content: Text('Veterinary Profile Published Successfully!')),
       );
 
-      // Navigate to HomePage after publishing
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => HomePage()),
-        (route) => false,
-      );
+      // Navigate to HomePage only if fromScreen is AddItemScreen
+      if (widget.fromScreen == 'AddItemScreen') {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+          (route) => false,
+        );
+      } else {
+        Navigator.pop(context);
+      }
     } catch (error) {
       print('Error publishing veterinary profile: $error');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -245,180 +304,195 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Veterinary Profile'),
-      ),
-      body: Stack(
-        children: [
-          _isLoading
-              ? Container(
-                  color: Colors.black.withOpacity(0.5),
-                  child: Center(
-                    child: Lottie.asset('asset/image/loading.json'),
-                  ),
-                )
-              : Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        // Name TextField
-                        TextField(
-                          controller: _nameController,
-                          decoration: InputDecoration(
-                            labelText: 'Name',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Location TextField
-                        TextField(
-                          controller: _locationController,
-                          decoration: InputDecoration(
-                            labelText: 'Location',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Experience TextField
-                        TextField(
-                          controller: _experienceController,
-                          decoration: InputDecoration(
-                            labelText: 'Experience',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // About TextArea
-                        TextField(
-                          controller: _aboutController,
-                          maxLines: 5,
-                          decoration: InputDecoration(
-                            labelText: 'About',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Price and Currency Selection
-                        Row(
-                          children: [
-                            // Currency Dropdown Button
-                            DropdownButton<String>(
-                              value: _selectedCurrency,
-                              onChanged: (String? newValue) {
-                                setState(() {
-                                  _selectedCurrency = newValue!;
-                                });
-                              },
-                              items: <String>[
-                                'USD',
-                                'INR'
-                              ].map<DropdownMenuItem<String>>((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                );
-                              }).toList(),
-                            ),
-                            const SizedBox(width: 16),
-
-                            // Price Input Field
-                            Expanded(
-                              child: TextField(
-                                controller: _priceController,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                  labelText: 'Price',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Image Picker Section
-                        Row(
-                          children: [
-                            // Button to select an image
-                            ElevatedButton(
-                              onPressed: _pickImage,
-                              child: Text(_image == null
-                                  ? 'Pick Image'
-                                  : 'Change Image'),
-                            ),
-                            if (_image != null) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(left: 16),
-                                child: Stack(
-                                  children: [
-                                    Image.file(
-                                      _image!,
-                                      width: 100,
-                                      height: 100,
-                                      fit: BoxFit.cover,
-                                    ),
-                                    Positioned(
-                                      right: 0,
-                                      top: 0,
-                                      child: IconButton(
-                                        icon: Icon(Icons.close,
-                                            color: Colors.red),
-                                        onPressed: _removeImage,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ] else if (_existingImageUrl != null) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(left: 16),
-                                child: Stack(
-                                  children: [
-                                    Image.network(
-                                      _existingImageUrl!,
-                                      width: 100,
-                                      height: 100,
-                                      fit: BoxFit.cover,
-                                    ),
-                                    Positioned(
-                                      right: 0,
-                                      top: 0,
-                                      child: IconButton(
-                                        icon: Icon(Icons.close,
-                                            color: Colors.red),
-                                        onPressed: _removeImage,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ]
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Publish Button
-                        ElevatedButton(
-                          onPressed: _publishVeterinaryProfile,
-                          child: Text('Publish'),
-                          style: ElevatedButton.styleFrom(
-                            minimumSize:
-                                Size(double.infinity, 50), // Full-width button
-                          ),
-                        ),
-                      ],
-                    ),
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // Name TextField
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    border: OutlineInputBorder(),
                   ),
                 ),
-        ],
-      ),
+                const SizedBox(height: 16),
+
+                // Location TextField
+                TextField(
+                  controller: _locationController,
+                  decoration: InputDecoration(
+                    labelText: 'Location',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Experience TextField
+                TextField(
+                  controller: _experienceController,
+                  decoration: InputDecoration(
+                    labelText: 'Experience',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // About TextArea
+                TextField(
+                  controller: _aboutController,
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    labelText: 'About',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Appointments per Day
+                TextField(
+                  controller: _appointmentsController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'No. of Appointments/Day',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    if (int.tryParse(value) != null && int.parse(value) > 30) {
+                      _appointmentsController.text = '30';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Maximum appointments per day is 30.'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Price and Currency Selection
+                Row(
+                  children: [
+                    // Currency Dropdown Button
+                    DropdownButton<String>(
+                      value: _selectedCurrency,
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedCurrency = newValue!;
+                        });
+                      },
+                      items: <String>['USD', 'INR']
+                          .map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Price Input Field
+                    Expanded(
+                      child: TextField(
+                        controller: _priceController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Price',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Image Picker Section
+                Row(
+                  children: [
+                    // Button to select an image
+                    ElevatedButton(
+                      onPressed: _pickImage,
+                      child:
+                          Text(_image == null ? 'Pick Image' : 'Change Image'),
+                    ),
+                    if (_image != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Stack(
+                          children: [
+                            Image.file(
+                              _image!,
+                              width: 100,
+                              height: 100,
+                              fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: IconButton(
+                                icon: Icon(Icons.close, color: Colors.red),
+                                onPressed: _removeImage,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (_existingImageUrl != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Stack(
+                          children: [
+                            Image.network(
+                              _existingImageUrl!,
+                              width: 100,
+                              height: 100,
+                              fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: IconButton(
+                                icon: Icon(Icons.close, color: Colors.red),
+                                onPressed: _removeImage,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Publish Button
+                ElevatedButton(
+                  onPressed: _publishVeterinaryProfile,
+                  child: Text('Publish'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: Size(double.infinity, 50), // Full-width button
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_isLoading)
+          Container(
+            color: Colors.black
+                .withOpacity(0.5), // Transparent and dark background
+            child: Center(
+              child: Lottie.asset(
+                'asset/image/loading.json',
+                width: 100, // Small size for the Lottie animation
+                height: 100,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

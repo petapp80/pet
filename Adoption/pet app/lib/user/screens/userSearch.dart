@@ -1,5 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'userEdit.dart'; // Import your UserEdit screen here.
+import 'userEdit.dart';
+import 'petEdit.dart';
+import 'productEdit.dart';
+import 'veterinaryEdit.dart';
 
 class UserSearch extends StatefulWidget {
   const UserSearch({super.key});
@@ -12,123 +16,203 @@ class _UserSearchState extends State<UserSearch> {
   String searchQuery = '';
   String selectedCategory = 'Users'; // Default category
 
-  final List<Map<String, String>> users = [
-    {'name': 'John Doe', 'description': 'A regular user'},
-    {'name': 'Jane Smith', 'description': 'An avid traveler'},
-  ];
+  List<Map<String, dynamic>> searchResults = [];
 
-  final List<Map<String, String>> pets = [
-    {'name': 'Buddy', 'description': 'A friendly dog', 'type': 'Dog'},
-    {'name': 'Whiskers', 'description': 'A curious cat', 'type': 'Cat'},
-  ];
+  Future<void> fetchSearchResults() async {
+    if (searchQuery.isEmpty) {
+      return;
+    }
 
-  final List<Map<String, String>> products = [
-    {'name': 'Dog Toy', 'description': 'A squeaky toy for playful puppies'},
-    {'name': 'Cat Bed', 'description': 'A soft, cozy bed for your cat'},
-  ];
+    try {
+      List<Map<String, dynamic>> data;
+      switch (selectedCategory) {
+        case 'Users':
+          final userSnapshot = await FirebaseFirestore.instance
+              .collection('user')
+              .where('name', isGreaterThanOrEqualTo: searchQuery)
+              .get();
+          data = userSnapshot.docs.map((doc) => doc.data()).toList();
+          break;
+        case 'Pets':
+          final userSnapshot = await FirebaseFirestore.instance
+              .collection('user')
+              .where('name', isGreaterThanOrEqualTo: searchQuery)
+              .get();
+          final petData = await Future.wait(userSnapshot.docs.map((doc) async {
+            final userId = doc.id;
+            final userName = doc.data()['name'];
+            final userEmail = doc.data()['email'];
+            final petsSnapshot = await doc.reference.collection('pets').get();
+            return petsSnapshot.docs.map((petDoc) {
+              final pet = petDoc.data();
+              return {
+                ...pet,
+                'userId': userId,
+                'userName': userName,
+                'userEmail': userEmail,
+                'name': userName,
+              };
+            }).toList();
+          }));
+          data = petData.expand((x) => x).toList();
+          break;
+        case 'Products':
+          final userSnapshot = await FirebaseFirestore.instance
+              .collection('user')
+              .where('name', isGreaterThanOrEqualTo: searchQuery)
+              .get();
+          final productData =
+              await Future.wait(userSnapshot.docs.map((doc) async {
+            final userId = doc.id;
+            final userName = doc.data()['name'];
+            final userEmail = doc.data()['email'];
+            final productsSnapshot =
+                await doc.reference.collection('products').get();
+            return productsSnapshot.docs.map((productDoc) {
+              final product = productDoc.data();
+              return {
+                ...product,
+                'userId': userId,
+                'userName': userName,
+                'userEmail': userEmail,
+                'name': userName,
+              };
+            }).toList();
+          }));
+          data = productData.expand((x) => x).toList();
+          break;
+        case 'Veterinary':
+          final vetSnapshot = await FirebaseFirestore.instance
+              .collection('Veterinary')
+              .where('name', isGreaterThanOrEqualTo: searchQuery)
+              .get();
+          data = vetSnapshot.docs.map((doc) {
+            var vetData = doc.data();
+            vetData['userId'] = doc.id; // Add the userId to the data
+            return vetData;
+          }).toList();
+          break;
+        default:
+          data = [];
+          break;
+      }
+      setState(() {
+        searchResults = data;
+      });
+    } catch (e) {
+      print('Error fetching search results: $e');
+    }
+  }
 
-  final List<Map<String, String>> veterinary = [
-    {'name': 'Dr. Smith', 'description': 'Specialist in small animals'},
-    {'name': 'Dr. Brown', 'description': 'Experienced in exotic pets'},
-  ];
-
-  // Get search results based on the selected category
-  List<Map<String, String>> get searchResults {
-    List<Map<String, String>> items;
+  void _navigateToEditScreen(Map<String, dynamic> item) async {
+    Widget editScreen;
     switch (selectedCategory) {
       case 'Users':
-        items = users;
+        editScreen = UserEdit(
+          name: item['name'] ?? 'No name',
+          email: item['email'] ?? 'No email',
+        );
         break;
       case 'Pets':
-        items = pets;
+        editScreen = PetEdit(
+          name: item['name'] ?? 'No name',
+          petData: item,
+          userName: item['userName'] ?? 'No user name',
+          userEmail: item['userEmail'] ?? 'No user email',
+          userId: item['userId'] ?? 'No userId',
+        );
         break;
       case 'Products':
-        items = products;
+        editScreen = ProductEdit(
+          name: item['name'] ?? 'No name',
+          productData: item,
+          userName: item['userName'] ?? 'No user name',
+          userEmail: item['userEmail'] ?? 'No user email',
+          userId: item['userId'] ?? 'No userId',
+        );
         break;
       case 'Veterinary':
-        items = veterinary;
+        editScreen = VeterinaryEdit(
+          name: item['name'] ?? 'No name',
+          vetData: item,
+          userId: item['userId'] ?? 'No userId',
+        );
         break;
       default:
-        items = [];
+        editScreen = Container();
     }
-    return items
-        .where((item) =>
-            item['name']!.toLowerCase().contains(searchQuery.toLowerCase()))
-        .toList();
-  }
 
-  void _navigateToUserEdit(Map<String, String> item) {
-    Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => UserEdit(
-          name: item['name']!,
-          description: item['description']!,
-          isUser: selectedCategory == 'Users',
-          petData: selectedCategory == 'Pets' ? item : null,
-        ),
+        builder: (context) => editScreen,
       ),
     );
-  }
 
-  void _addNewItem() {
-    // Replace this with your logic to add a new item
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => UserEdit(
-          name: '',
-          description: '',
-          isUser: selectedCategory == 'Users',
-        ),
-      ),
-    );
+    // Refresh the search results if an item was deleted
+    if (result == true) {
+      fetchSearchResults();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Search $selectedCategory'),
+        title: const Text('Search'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(50.0),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              onChanged: (value) {
-                setState(() {
-                  searchQuery = value;
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search $selectedCategory',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        searchQuery = value;
+                      });
+                      fetchSearchResults();
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search $selectedCategory',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                  ),
                 ),
-                filled: true,
-                fillColor: Colors.white,
-              ),
+                const SizedBox(width: 10),
+                DropdownButton<String>(
+                  value: selectedCategory,
+                  items: <String>['Users', 'Pets', 'Products', 'Veterinary']
+                      .map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      selectedCategory = newValue!;
+                      searchQuery =
+                          ''; // Clear search when switching categories
+                      searchResults =
+                          []; // Clear search results when switching categories
+                    });
+                  },
+                ),
+              ],
             ),
           ),
         ),
       ),
       body: Column(
         children: [
-          // Toggle between Users, Pets, Products, and Veterinary
-          Wrap(
-            spacing: 10.0,
-            alignment: WrapAlignment.center,
-            children: [
-              _categoryChip('Users'),
-              _categoryChip('Pets'),
-              _categoryChip('Products'),
-              _categoryChip('Veterinary'),
-            ],
-          ),
-          const Divider(),
-
           // Search Results
           Expanded(
             child: searchResults.isEmpty
@@ -138,35 +222,18 @@ class _UserSearchState extends State<UserSearch> {
                     itemBuilder: (context, index) {
                       final item = searchResults[index];
                       return ListTile(
-                        title: Text(item['name']!),
-                        subtitle: Text(item['description']!),
-                        onTap: () => _navigateToUserEdit(item),
+                        title: Text(item['name'] ?? 'No name'),
+                        subtitle: Text(item['email'] ??
+                            item['about'] ??
+                            item['description'] ??
+                            'No information'),
+                        onTap: () => _navigateToEditScreen(item),
                       );
                     },
                   ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addNewItem,
-        tooltip: 'Add New',
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  Widget _categoryChip(String category) {
-    return ChoiceChip(
-      label: Text(category),
-      selected: selectedCategory == category,
-      onSelected: (selected) {
-        if (selected) {
-          setState(() {
-            selectedCategory = category;
-            searchQuery = ''; // Clear search when switching categories
-          });
-        }
-      },
     );
   }
 }
