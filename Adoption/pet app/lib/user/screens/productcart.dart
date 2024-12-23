@@ -118,6 +118,63 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
     return null;
   }
 
+  Future<void> _markItemAsCompleted(String itemId, String customerId) async {
+    try {
+      final userDocRef = FirebaseFirestore.instance
+          .collection('user')
+          .doc(userId)
+          .collection('customers')
+          .doc(itemId);
+
+      final customerSnapshot = await userDocRef.get();
+
+      if (customerSnapshot.exists) {
+        final customerInfo =
+            customerSnapshot.data()?['customerInfo'] as List<dynamic>;
+        final updatedCustomerInfo = customerInfo.map((info) {
+          if (info['id'] == itemId) {
+            _updateCartListStatus(
+                customerId, itemId); // Update the CartList status
+            return {...info, 'status': 'completed'};
+          }
+          return info;
+        }).toList();
+
+        await userDocRef.update({'customerInfo': updatedCustomerInfo});
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Item marked as completed')),
+        );
+      }
+    } catch (e) {
+      print('Error marking item as completed: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to mark item as completed: $e')),
+      );
+    }
+  }
+
+  Future<void> _updateCartListStatus(String customerId, String itemId) async {
+    try {
+      final userCartListDocRef = FirebaseFirestore.instance
+          .collection('user')
+          .doc(customerId)
+          .collection('CartList')
+          .doc(itemId);
+
+      await userCartListDocRef.update({'status': 'completed'});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('CartList status updated to completed')),
+      );
+    } catch (e) {
+      print('Error updating CartList status: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update CartList status: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -268,8 +325,8 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                     : itemData['imageUrl'];
 
                 return isOngoingSelected
-                    ? _buildOngoingCard(
-                        itemData, customerData, title, description, imageUrl)
+                    ? _buildOngoingCard(itemData, customerData, title,
+                        description, imageUrl, itemId, customerId)
                     : _buildCompletedCard(
                         itemData, customerData, title, description, imageUrl);
               },
@@ -285,7 +342,9 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
       Map<String, dynamic> customerData,
       String title,
       String description,
-      String imageUrl) {
+      String imageUrl,
+      String itemId,
+      String customerId) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
@@ -328,6 +387,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
                   onPressed: () {
@@ -364,6 +424,12 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                   },
                   icon: const Icon(Icons.message_outlined),
                   color: Colors.orange,
+                ),
+                IconButton(
+                  onPressed: () async {
+                    await _markItemAsCompleted(itemId, customerId);
+                  },
+                  icon: const Icon(Icons.check_circle, color: Colors.green),
                 ),
               ],
             ),
@@ -579,11 +645,11 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                             builder: (context) => collection == 'pets'
                                 ? AddScreen(
                                     fromScreen: 'ProductCartScreen',
-                                    docId: item['id'], // Optional
+                                    docId: item['id'], // Pass document ID
                                   )
                                 : ProductsAddScreen(
                                     fromScreen: 'ProductCartScreen',
-                                    docId: item['id'], // Optional
+                                    docId: item['id'], // Pass document ID
                                   ),
                           ),
                         );

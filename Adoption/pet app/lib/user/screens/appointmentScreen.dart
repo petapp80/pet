@@ -10,40 +10,55 @@ class AppointmentScreen extends StatefulWidget {
 }
 
 class _AppointmentScreenState extends State<AppointmentScreen> {
-  final List<Map<String, dynamic>> _appointments = [
-    {
-      'time': '9:00 AM',
-      'patientName': 'John Doe',
-      'petName': 'Buddy',
-      'petType': 'Dog',
-      'reason': 'Vaccination',
-      'status': 'Confirmed',
-    },
-    {
-      'time': '10:00 AM',
-      'patientName': 'Jane Smith',
-      'petName': 'Whiskers',
-      'petType': 'Cat',
-      'reason': 'Routine Checkup',
-      'status': 'Pending',
-    },
-    {
-      'time': '11:30 AM',
-      'patientName': 'Chris Johnson',
-      'petName': 'Goldie',
-      'petType': 'Fish',
-      'reason': 'Water Quality Issue',
-      'status': 'Completed',
-    },
-  ];
-
+  List<Map<String, dynamic>> _appointments = [];
   bool _isBlocked = false;
   bool _isUpdating = false;
 
   @override
   void initState() {
     super.initState();
+    _fetchAppointments();
     _checkAvailability();
+  }
+
+  Future<void> _fetchAppointments() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final customerSnapshot = await FirebaseFirestore.instance
+        .collection('user')
+        .doc(userId)
+        .collection('customers')
+        .get();
+
+    List<Map<String, dynamic>> appointments = [];
+
+    for (var doc in customerSnapshot.docs) {
+      List<dynamic> customerInfo = doc.data()['customerInfo'] ?? [];
+      for (var info in customerInfo) {
+        final customerId = info['customerId'];
+        final customerDoc = await FirebaseFirestore.instance
+            .collection('user')
+            .doc(customerId)
+            .get();
+        if (customerDoc.exists) {
+          final customerName = customerDoc.data()?['name'] ?? 'Unknown';
+          appointments.add({
+            'time': info['time'] ?? 'Unknown', // Get time from the field time
+            'patientName': customerName,
+            'petName': info['petItem'] ?? 'Unknown',
+            'reason':
+                'Appointment', // Placeholder reason, replace with actual if available
+            'status':
+                'Confirmed', // Placeholder status, replace with actual if available
+          });
+        }
+      }
+    }
+
+    setState(() {
+      _appointments = appointments;
+    });
   }
 
   Future<void> _checkAvailability() async {
@@ -181,7 +196,6 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
           children: [
             Text("Patient Name: ${appointment['patientName']}"),
             Text("Pet Name: ${appointment['petName']}"),
-            Text("Pet Type: ${appointment['petType']}"),
             Text("Reason: ${appointment['reason']}"),
             Text("Status: ${appointment['status']}"),
           ],
@@ -238,8 +252,7 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text("Patient: ${appointment['patientName']}"),
-                          Text(
-                              "Pet: ${appointment['petName']} (${appointment['petType']})"),
+                          Text("Pet: ${appointment['petName']}"),
                         ],
                       ),
                       trailing: IconButton(

@@ -158,6 +158,10 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
       return;
     }
 
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
@@ -208,6 +212,11 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
             .update(productData);
       }
 
+      // Update user's position to Buyer-Seller
+      await FirebaseFirestore.instance.collection('user').doc(userId).update({
+        'position': 'Buyer-Seller',
+      });
+
       print(
           "Product ${widget.docId == null || widget.docId!.isEmpty ? 'added' : 'updated'}: $productData");
 
@@ -230,6 +239,10 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
         const SnackBar(content: Text('Failed to Publish Product')),
       );
     }
+
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   @override
@@ -352,8 +365,14 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _publishProduct,
-                      child: Text('Publish'),
+                      onPressed: _isLoading ? null : _publishProduct,
+                      child: _isLoading
+                          ? const CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            )
+                          : const Text('Publish'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.teal,
                         minimumSize: Size(double.infinity, 50),

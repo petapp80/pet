@@ -21,6 +21,8 @@ class DetailScreen extends StatefulWidget {
 
 class _DetailScreenState extends State<DetailScreen> {
   late Razorpay _razorpay;
+  String? _petItem;
+  String? _selectedTime;
 
   @override
   void initState() {
@@ -35,6 +37,48 @@ class _DetailScreenState extends State<DetailScreen> {
   void dispose() {
     _razorpay.clear();
     super.dispose();
+  }
+
+  Future<String?> _getAvailableTimeSlot(String sellerId) async {
+    final times = [
+      "10:00",
+      "10:30",
+      "11:00",
+      "11:30",
+      "12:00",
+      "12:30",
+      "13:00",
+      "13:30",
+      "14:00",
+      "14:30",
+      "15:00",
+      "15:30",
+      "16:00",
+      "16:30",
+      "17:00"
+    ];
+
+    final sellerCustomerSnapshot = await FirebaseFirestore.instance
+        .collection('user')
+        .doc(sellerId)
+        .collection('customers')
+        .get();
+
+    final List<String> allocatedTimes = [];
+    for (var doc in sellerCustomerSnapshot.docs) {
+      List<dynamic> customerInfo = doc.data()['customerInfo'] ?? [];
+      for (var info in customerInfo) {
+        allocatedTimes.add(info['time']);
+      }
+    }
+
+    for (var time in times) {
+      if (!allocatedTimes.contains(time)) {
+        return time;
+      }
+    }
+
+    return null; // No available time slots
   }
 
   void _checkAndInitiatePayment(
@@ -58,6 +102,16 @@ class _DetailScreenState extends State<DetailScreen> {
       );
       return;
     }
+
+    // Check available time slots
+    final availableTime = await _getAvailableTimeSlot(data['userId']);
+    if (availableTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Appointments not available')),
+      );
+      return;
+    }
+    _selectedTime = availableTime;
 
     var options = {
       'key': 'rzp_test_D5Vh3hyi1gRBV0',
@@ -101,6 +155,7 @@ class _DetailScreenState extends State<DetailScreen> {
       await userDocRef.set({
         'status': 'ongoing',
         'id': widget.data['id'],
+        'time': _selectedTime, // Add the time field
       });
       print('CartList Updated for User');
 
@@ -115,6 +170,8 @@ class _DetailScreenState extends State<DetailScreen> {
         'status': 'ongoing',
         'type': widget.data['collection'] == 'pets' ? 'pet' : 'product',
         'id': widget.data['id'],
+        'petItem': _petItem ?? '', // Add the petItem field
+        'time': _selectedTime, // Add the time field
       };
 
       final sellerCustomerSnapshot = await sellerDocRef.get();
@@ -147,6 +204,34 @@ class _DetailScreenState extends State<DetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
           content: Text('External wallet selected: ${response.walletName}')),
+    );
+  }
+
+  void _showPetItemDialog(BuildContext context, String field) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Enter Pet Item'),
+          content: TextField(
+            onChanged: (value) {
+              _petItem = value;
+            },
+            decoration: InputDecoration(
+              hintText: 'Pet Item',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _checkAndInitiatePayment(context, widget.data, field);
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -281,8 +366,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   if (isVeterinaryCollection)
                     IconButton(
                       onPressed: () {
-                        _checkAndInitiatePayment(
-                            context, widget.data, 'appointments');
+                        _showPetItemDialog(context, 'appointments');
                       },
                       icon: const Icon(Icons.event_note_outlined),
                       color: Theme.of(context).colorScheme.secondary,
@@ -381,6 +465,8 @@ class _DetailScreenState extends State<DetailScreen> {
         'status': 'ongoing',
         'type': item['collection'] == 'pets' ? 'pet' : 'product',
         'id': item['id'],
+        'petItem': _petItem ?? '', // Add the petItem field
+        'time': _selectedTime, // Add the time field
       };
 
       final sellerCustomerRef = FirebaseFirestore.instance
