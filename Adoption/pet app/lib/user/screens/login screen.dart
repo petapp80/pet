@@ -55,86 +55,94 @@ class _LoginPageState extends State<LoginPage> {
       String password = _passwordController.text;
 
       try {
-        if (email == 'p@gmail.com' && password == '1') {
+        // Check if the email belongs to an admin
+        QuerySnapshot adminSnapshot = await FirebaseFirestore.instance
+            .collection('admin')
+            .where('email', isEqualTo: email)
+            .get();
+
+        if (adminSnapshot.docs.isNotEmpty) {
           // Admin credentials
-          await Future.delayed(const Duration(seconds: 2)); // Simulate delay
-          setState(() {
-            loading = false;
-          });
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminPage()),
-            (route) => false,
-          );
-        } else {
-          // Authenticate user using BuyerAuthService
-          final User? user = await BuyerAuthService().loginUser(
-            context: context,
-            email: email,
-            password: password,
-          );
-          if (user != null) {
-            // Fetch user document from Firestore
-            DocumentSnapshot userDoc = await FirebaseFirestore.instance
-                .collection('user')
-                .doc(user.uid)
-                .get();
+          UserCredential userCredential = await FirebaseAuth.instance
+              .signInWithEmailAndPassword(email: email, password: password);
+          if (userCredential.user != null) {
+            setState(() {
+              loading = false;
+            });
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const AdminPage()),
+              (route) => false,
+            );
+            return;
+          }
+        }
 
-            if (userDoc.exists) {
-              // Get position field from Firestore
-              String? position = userDoc['position'];
+        // Authenticate user using BuyerAuthService
+        final User? user = await BuyerAuthService().loginUser(
+          context: context,
+          email: email,
+          password: password,
+        );
+        if (user != null) {
+          // Fetch user document from Firestore
+          DocumentSnapshot userDoc = await FirebaseFirestore.instance
+              .collection('user')
+              .doc(user.uid)
+              .get();
 
-              setState(() {
-                loading = false;
-              });
+          if (userDoc.exists) {
+            // Get position field from Firestore
+            String? position = userDoc['position'];
 
-              // Redirect based on user position
-              if (position == 'Buyer') {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomePage()),
-                );
-              } else if (position == 'Seller') {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ProductsScreen()),
-                );
-              } else if (position == 'Veterinary') {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const VeterinaryScreen()),
-                );
-              } else if (position == 'Buyer-Seller') {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomePage()),
-                );
-              } else if (position == 'Buyer-Veterinary') {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomePage()),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Unknown user position')),
-                );
-              }
+            setState(() {
+              loading = false;
+            });
+
+            // Redirect based on user position
+            if (position == 'Buyer') {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const HomePage()),
+              );
+            } else if (position == 'Seller') {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const ProductsScreen()),
+              );
+            } else if (position == 'Veterinary') {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const VeterinaryScreen()),
+              );
+            } else if (position == 'Buyer-Seller') {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const HomePage()),
+              );
+            } else if (position == 'Buyer-Veterinary') {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const HomePage()),
+              );
             } else {
-              setState(() {
-                loading = false;
-              });
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('User data not found in Firestore')),
+                const SnackBar(content: Text('Unknown user position')),
               );
             }
           } else {
             setState(() {
               loading = false;
             });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('User data not found in Firestore')),
+            );
           }
+        } else {
+          setState(() {
+            loading = false;
+          });
         }
       } catch (e) {
         setState(() {

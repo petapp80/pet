@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'chatDetailScreen.dart'; // Import the ChatDetailScreen
 
 class AppointmentScreen extends StatefulWidget {
   const AppointmentScreen({super.key});
@@ -10,33 +11,7 @@ class AppointmentScreen extends StatefulWidget {
 }
 
 class _AppointmentScreenState extends State<AppointmentScreen> {
-  final List<Map<String, dynamic>> _appointments = [
-    {
-      'time': '9:00 AM',
-      'patientName': 'John Doe',
-      'petName': 'Buddy',
-      'petType': 'Dog',
-      'reason': 'Vaccination',
-      'status': 'Confirmed',
-    },
-    {
-      'time': '10:00 AM',
-      'patientName': 'Jane Smith',
-      'petName': 'Whiskers',
-      'petType': 'Cat',
-      'reason': 'Routine Checkup',
-      'status': 'Pending',
-    },
-    {
-      'time': '11:30 AM',
-      'patientName': 'Chris Johnson',
-      'petName': 'Goldie',
-      'petType': 'Fish',
-      'reason': 'Water Quality Issue',
-      'status': 'Completed',
-    },
-  ];
-
+  Stream<QuerySnapshot>? _appointmentsStream;
   bool _isBlocked = false;
   bool _isUpdating = false;
 
@@ -44,6 +19,7 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
   void initState() {
     super.initState();
     _checkAvailability();
+    _initializeAppointmentStream();
   }
 
   Future<void> _checkAvailability() async {
@@ -117,30 +93,20 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
       }
 
       if (_isBlocked) {
-        await userDocRef.update({
-          'availability': FieldValue.delete(),
-        });
-        await vetDocRefNested.update({
-          'availability': FieldValue.delete(),
-        });
+        await userDocRef.update({'availability': FieldValue.delete()});
+        await vetDocRefNested.update({'availability': FieldValue.delete()});
 
         if (vetExternalExists) {
-          await vetDocsExternal.docs.first.reference.update({
-            'availability': FieldValue.delete(),
-          });
+          await vetDocsExternal.docs.first.reference
+              .update({'availability': FieldValue.delete()});
         }
       } else {
-        await userDocRef.update({
-          'availability': 'blocked',
-        });
-        await vetDocRefNested.update({
-          'availability': 'blocked',
-        });
+        await userDocRef.update({'availability': 'blocked'});
+        await vetDocRefNested.update({'availability': 'blocked'});
 
         if (vetExternalExists) {
-          await vetDocsExternal.docs.first.reference.update({
-            'availability': 'blocked',
-          });
+          await vetDocsExternal.docs.first.reference
+              .update({'availability': 'blocked'});
         }
       }
 
@@ -170,30 +136,25 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
     }
   }
 
-  void _viewAppointmentDetails(Map<String, dynamic> appointment) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Appointment Details - ${appointment['time']}"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Patient Name: ${appointment['patientName']}"),
-            Text("Pet Name: ${appointment['petName']}"),
-            Text("Pet Type: ${appointment['petType']}"),
-            Text("Reason: ${appointment['reason']}"),
-            Text("Status: ${appointment['status']}"),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Close"),
-          ),
-        ],
-      ),
-    );
+  void _initializeAppointmentStream() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      setState(() {
+        _appointmentsStream = FirebaseFirestore.instance
+            .collection('user')
+            .doc(userId)
+            .collection('customers')
+            .snapshots();
+      });
+    }
+  }
+
+  Future<String> _getPatientName(String customerId) async {
+    final customerDoc = await FirebaseFirestore.instance
+        .collection('user')
+        .doc(customerId)
+        .get();
+    return customerDoc.data()?['name']?.toString() ?? 'Unknown';
   }
 
   @override
@@ -213,43 +174,96 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: ListView.builder(
-                itemCount: _appointments.length,
-                itemBuilder: (context, index) {
-                  final appointment = _appointments[index];
-                  return Card(
-                    elevation: 4,
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    child: ListTile(
-                      leading: Icon(
-                        appointment['status'] == 'Confirmed'
-                            ? Icons.check_circle
-                            : appointment['status'] == 'Pending'
-                                ? Icons.hourglass_empty
-                                : Icons.done,
-                        color: appointment['status'] == 'Confirmed'
-                            ? Colors.green
-                            : appointment['status'] == 'Pending'
-                                ? Colors.orange
-                                : Colors.grey,
-                      ),
-                      title: Text("Time: ${appointment['time']}"),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Patient: ${appointment['patientName']}"),
-                          Text(
-                              "Pet: ${appointment['petName']} (${appointment['petType']})"),
-                        ],
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.info),
-                        onPressed: () {
-                          _viewAppointmentDetails(appointment);
-                        },
-                      ),
-                    ),
-                  );
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _appointmentsStream,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const CircularProgressIndicator();
+                  } else if (snapshot.hasError) {
+                    return const Text('Error loading appointments');
+                  } else if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Text('No appointments found');
+                  } else {
+                    final appointments = snapshot.data!.docs;
+
+                    return ListView.builder(
+                      itemCount: appointments.length,
+                      itemBuilder: (context, index) {
+                        final appointmentData =
+                            appointments[index].data() as Map<String, dynamic>;
+                        final customerInfoArray =
+                            appointmentData['customerInfo'] as List<dynamic>?;
+                        if (customerInfoArray == null ||
+                            customerInfoArray.isEmpty) {
+                          return const ListTile(
+                            title: Text('No customer info found'),
+                          );
+                        }
+
+                        final customerInfo =
+                            customerInfoArray[0] as Map<String, dynamic>;
+                        final customerId =
+                            customerInfo['customerId'] as String?;
+                        final petType =
+                            customerInfo['type of pet'] as String? ?? 'Unknown';
+
+                        if (customerId == null) {
+                          return const ListTile(
+                            title: Text('Customer ID not found'),
+                          );
+                        }
+
+                        return FutureBuilder<String>(
+                          future: _getPatientName(customerId),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const ListTile(
+                                title: Text('Loading...'),
+                              );
+                            } else if (snapshot.hasError) {
+                              return const ListTile(
+                                title: Text('Error loading patient details'),
+                              );
+                            } else {
+                              final patientName = snapshot.data ?? 'Unknown';
+                              return Card(
+                                elevation: 4,
+                                margin: const EdgeInsets.symmetric(vertical: 8),
+                                child: ListTile(
+                                  leading: const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green,
+                                  ),
+                                  title: Text("Patient: $patientName"),
+                                  subtitle: Text("Pet: $petType"),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.message),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              ChatDetailScreen(
+                                            name: patientName,
+                                            image:
+                                                'asset/image/default_profile.png', // Provide a default image or fetch from Firestore if available
+                                            navigationSource:
+                                                'VeterineryScreen',
+                                            userId: customerId!,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    );
+                  }
                 },
               ),
             ),
@@ -262,6 +276,31 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
             ? const CircularProgressIndicator(color: Colors.white)
             : Icon(_isBlocked ? Icons.lock_open : Icons.lock),
         tooltip: _isBlocked ? 'Unblock Appointments' : 'Block Appointments',
+      ),
+    );
+  }
+
+  void _viewAppointmentDetails(Map<String, dynamic> appointment) async {
+    final patientName = await _getPatientName(appointment['customerId']);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Appointment Details"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Patient Name: $patientName"),
+            Text("Pet Type: ${appointment['type of pet'] ?? 'Unknown'}"),
+            Text("Status: ${appointment['status'] ?? 'Unknown'}"),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
+          ),
+        ],
       ),
     );
   }

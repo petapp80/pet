@@ -41,6 +41,7 @@ class _AddScreenState extends State<AddScreen> {
   void initState() {
     super.initState();
     if (widget.docId != null) {
+      print('Received docId: ${widget.docId}'); // Debug print
       _fetchPetData();
     }
   }
@@ -50,29 +51,43 @@ class _AddScreenState extends State<AddScreen> {
       _isLoading = true;
     });
 
-    final doc = await FirebaseFirestore.instance
-        .collection('pets')
-        .doc(widget.docId)
-        .get();
-    final data = doc.data();
-    if (data != null) {
-      petTypeController.text = data['petType'];
-      breedController.text = data['breed'] ?? '';
-      ageController.text = data['age'];
-      _selectedSex = data['sex'];
-      colourController.text = data['colour'];
-      weightController.text = data['weight'];
-      locationController.text = data['location'];
-      priceController.text = data['price'].split(' ')[1];
-      _selectedCurrency = data['price'].split(' ')[0];
-      aboutController.text = data['about'];
-      quantityController.text = data['quantity'];
-      _existingImageUrl = data['imageUrl'];
-    }
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
 
-    setState(() {
-      _isLoading = false;
-    });
+      final doc = await FirebaseFirestore.instance
+          .collection('user')
+          .doc(userId)
+          .collection('pets')
+          .doc(widget.docId)
+          .get();
+      final data = doc.data();
+      if (data != null) {
+        setState(() {
+          print('Data fetched: $data'); // Debug print
+          petTypeController.text = data['petType'];
+          breedController.text = data['breed'] ?? '';
+          ageController.text = data['age'];
+          _selectedSex = data['sex'];
+          colourController.text = data['colour'];
+          weightController.text = data['weight'];
+          locationController.text = data['location'];
+          priceController.text = data['price'].split(' ')[1];
+          _selectedCurrency = data['price'].split(' ')[0];
+          aboutController.text = data['about'];
+          quantityController.text = data['quantity'].toString();
+          _existingImageUrl = data['imageUrl'];
+        });
+      } else {
+        print('No data found for docId: ${widget.docId}'); // Debug print
+      }
+    } catch (e) {
+      print('Error fetching pet data: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _pickFile() async {

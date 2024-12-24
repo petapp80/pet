@@ -6,6 +6,8 @@ import 'package:flutter_application_1/user/screens/productsAddScreen.dart'; // C
 import 'package:flutter_application_1/user/screens/profile.dart';
 import 'package:flutter_application_1/user/screens/messageScreen.dart';
 
+import 'home.dart';
+
 class ProductsScreen extends StatefulWidget {
   final String? navigationSource; // Make this parameter optional
 
@@ -38,24 +40,12 @@ class _ProductsScreenState extends State<ProductsScreen>
 
   // Function to handle back button press (exit confirmation)
   Future<bool> _onWillPop() async {
-    DateTime currentTime = DateTime.now();
-    bool backButtonExit = _lastPressedAt == null ||
-        currentTime.difference(_lastPressedAt!) > const Duration(seconds: 2);
-
-    if (backButtonExit) {
-      _lastPressedAt = currentTime;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Press again to exit'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return false;
-    } else {
-      // Instead of returning true directly, we exit the app using SystemNavigator
-      SystemNavigator.pop();
-      return true;
-    }
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => HomePage()),
+      (Route<dynamic> route) => false,
+    );
+    return true;
   }
 
   @override
@@ -81,25 +71,24 @@ class _ProductsScreenState extends State<ProductsScreen>
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Product & Pets'),
-          bottom:
-              _selectedIndex == 1 // Only show the TabBar if "Add" is selected
-                  ? TabBar(
-                      controller:
-                          _tabController, // Use the TabController to manage tabs
-                      onTap: (index) {
-                        setState(() {
-                          _tabIndex = index; // Update tab index when tapping
-                        });
-                      },
-                      tabs: const [
-                        Tab(text: 'Products'),
-                        Tab(text: 'Pets'),
-                      ],
-                    )
-                  : null,
-        ),
+        appBar: _selectedIndex == 1
+            ? AppBar(
+                title: const Text('Product & Pets'),
+                bottom: TabBar(
+                  controller:
+                      _tabController, // Use the TabController to manage tabs
+                  onTap: (index) {
+                    setState(() {
+                      _tabIndex = index; // Update tab index when tapping
+                    });
+                  },
+                  tabs: const [
+                    Tab(text: 'Products'),
+                    Tab(text: 'Pets'),
+                  ],
+                ),
+              )
+            : null, // Only show the AppBar if "Add" is selected
         body: _selectedIndex == 1
             ? IndexedStack(
                 index: _tabIndex, // Switch between Product and Pets screens

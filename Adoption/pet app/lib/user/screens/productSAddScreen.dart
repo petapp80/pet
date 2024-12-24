@@ -47,24 +47,32 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
       _isLoading = true;
     });
 
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
     final doc = await FirebaseFirestore.instance
+        .collection('user')
+        .doc(userId)
         .collection('products')
         .doc(widget.docId)
         .get();
     final data = doc.data();
     if (data != null) {
-      _productNameController.text = data['productName'];
-      _descriptionController.text = data['description'];
-      _locationController.text = data['location'];
-      _priceController.text = data['price'].split(' ')[1];
-      _selectedCurrency = data['price'].split(' ')[0];
-      _quantityController.text = data['quantity'];
-      _existingImageUrl = data['imageUrl'];
+      setState(() {
+        _productNameController.text = data['productName'];
+        _descriptionController.text = data['description'];
+        _locationController.text = data['location'];
+        _priceController.text = data['price'].split(' ')[1];
+        _selectedCurrency = data['price'].split(' ')[0];
+        _quantityController.text = data['quantity'].toString();
+        _existingImageUrl = data['imageUrl'];
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
     }
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   Future<void> _pickImage() async {
@@ -158,6 +166,10 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
       return;
     }
 
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
@@ -208,12 +220,11 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
             .update(productData);
       }
 
-      print(
-          "Product ${widget.docId == null || widget.docId!.isEmpty ? 'added' : 'updated'}: $productData");
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Product Published Successfully!')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product Published Successfully!')),
+        );
+      }
 
       if (widget.fromScreen == 'AddItemScreen') {
         Navigator.pushAndRemoveUntil(
@@ -226,9 +237,17 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
       }
     } catch (error) {
       print('Error publishing product: $error');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to Publish Product')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to Publish Product')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -352,8 +371,14 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _publishProduct,
-                      child: Text('Publish'),
+                      onPressed: _isLoading ? null : _publishProduct,
+                      child: _isLoading
+                          ? const CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            )
+                          : const Text('Publish'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.teal,
                         minimumSize: Size(double.infinity, 50),

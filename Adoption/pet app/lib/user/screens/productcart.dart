@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'detailScreen.dart';
 import 'productsAddScreen.dart';
 import 'addScreen.dart';
+import 'package:rxdart/rxdart.dart';
 
 class ProductCartScreen extends StatefulWidget {
   const ProductCartScreen({super.key});
@@ -42,46 +43,56 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
     });
   }
 
-  Stream<List<Map<String, dynamic>>> getAllItems() async* {
-    final productsStream = FirebaseFirestore.instance
-        .collection('user')
-        .doc(userId)
-        .collection('products')
-        .snapshots();
+  Stream<List<Map<String, dynamic>>> getAllItems() {
+    return CombineLatestStream.list([
+      FirebaseFirestore.instance
+          .collection('user')
+          .doc(userId)
+          .collection('products')
+          .snapshots(),
+      FirebaseFirestore.instance
+          .collection('user')
+          .doc(userId)
+          .collection('pets')
+          .snapshots(),
+    ]).map((snapshots) {
+      final productsSnapshot = snapshots[0] as QuerySnapshot;
+      final petsSnapshot = snapshots[1] as QuerySnapshot;
 
-    final petsStream = FirebaseFirestore.instance
-        .collection('user')
-        .doc(userId)
-        .collection('pets')
-        .snapshots();
+      print('Products Snapshot: ${productsSnapshot.docs.length} documents');
+      print('Pets Snapshot: ${petsSnapshot.docs.length} documents');
 
-    await for (final productsSnapshot in productsStream) {
       final products = productsSnapshot.docs.map((doc) {
+        print('Product: ${doc.data()}');
         return {
           'id': doc.id,
-          'data': doc.data(),
+          'data': doc.data() as Map<String, dynamic>,
           'collection': 'products',
         };
       }).toList();
 
-      await for (final petsSnapshot in petsStream) {
-        final pets = petsSnapshot.docs.map((doc) {
-          return {
-            'id': doc.id,
-            'data': doc.data(),
-            'collection': 'pets',
-          };
-        }).toList();
+      final pets = petsSnapshot.docs.map((doc) {
+        print('Pet: ${doc.data()}');
+        return {
+          'id': doc.id,
+          'data': doc.data() as Map<String, dynamic>,
+          'collection': 'pets',
+        };
+      }).toList();
 
-        yield [...products, ...pets];
-      }
-    }
+      print('Combined List: ${products.length + pets.length} items');
+
+      return [...products, ...pets];
+    });
   }
 
   List<Map<String, dynamic>> filterItems(
       List<Map<String, dynamic>> items, String status) {
     return items.where((item) {
-      final customerInfo = item['data']['customerInfo'] as List<dynamic>;
+      final customerInfo = item['data']['customerInfo'];
+      if (customerInfo == null || customerInfo is! List<dynamic>) {
+        return false;
+      }
       final matchingItems =
           customerInfo.where((info) => info['status'] == status).toList();
       return matchingItems.isNotEmpty;
@@ -98,6 +109,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
   }
 
   Future<Map<String, dynamic>?> getCustomerDetails(String customerId) async {
+    if (customerId.isEmpty) return null;
     final doc = await FirebaseFirestore.instance
         .collection('user')
         .doc(customerId)
@@ -109,6 +121,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
   }
 
   Future<Map<String, dynamic>?> getItemDetails(String id, String type) async {
+    if (id.isEmpty || type.isEmpty) return null;
     final collection = type == 'pet' ? 'pets' : 'products';
     final doc =
         await FirebaseFirestore.instance.collection(collection).doc(id).get();
@@ -118,6 +131,57 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
     return null;
   }
 
+  Future<void> finalizeStatus(
+      String itemId, String customerId, String newStatus) async {
+    if (userId.isEmpty || itemId.isEmpty || customerId.isEmpty) return;
+    try {
+      // Access the document in the `customers` collection
+      final customerDocRef = FirebaseFirestore.instance
+          .collection('user')
+          .doc(userId)
+          .collection('customers')
+          .doc(itemId);
+
+      // Retrieve the document
+      final customerDocSnapshot = await customerDocRef.get();
+      if (customerDocSnapshot.exists) {
+        // Get the current data
+        final data = customerDocSnapshot.data() as Map<String, dynamic>;
+
+        // Get the customerInfo array
+        final customerInfoList = data['customerInfo'] as List<dynamic>;
+
+        // Iterate through the customerInfo array and update the status
+        for (var customerInfo in customerInfoList) {
+          if (customerInfo['customerId'] == customerId) {
+            customerInfo['status'] = newStatus;
+            break;
+          }
+        }
+
+        // Update the document in Firestore
+        await customerDocRef.update({'customerInfo': customerInfoList});
+        print('Updated status in customers sub-collection for item: $itemId');
+      } else {
+        print(
+            'No matching document found in customers sub-collection for item: $itemId');
+      }
+
+      // Show a success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Item marked as $newStatus'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+
+      // Refresh the UI
+      setState(() {});
+    } catch (e) {
+      print('Error updating status: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -125,66 +189,65 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
         title: const Text('Product Cart'),
         backgroundColor: Colors.teal,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              // Row with Ongoing, Completed, and All Text inside rounded box
-              Row(
-                children: [
-                  _buildTabText('Ongoing', isOngoingSelected && !isAllSelected),
-                  const SizedBox(width: 16),
-                  _buildTabText(
-                      'Completed', !isOngoingSelected && !isAllSelected),
-                  const SizedBox(width: 16),
-                  _buildTabText('All', isAllSelected),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              if (isAllSelected)
-                StreamBuilder<List<Map<String, dynamic>>>(
-                  stream: getAllItems(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    } else if (snapshot.hasError) {
-                      return const Center(child: Text('Error fetching data'));
-                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Center(child: Text('No data yet'));
-                    }
-
-                    final items = snapshot.data!;
-                    return _buildAllItemList(items);
-                  },
-                )
-              else
-                StreamBuilder<List<Map<String, dynamic>>>(
-                  stream: getCustomerCartItems(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    } else if (snapshot.hasError) {
-                      return const Center(child: Text('Error fetching data'));
-                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Center(child: Text('No data yet'));
-                    }
-
-                    final items = snapshot.data!;
-                    final ongoingItems = filterItems(items, 'ongoing');
-                    final completedItems = filterItems(items, 'completed');
-
-                    return isOngoingSelected
-                        ? _buildItemList(ongoingItems, 'No ongoing data yet')
-                        : _buildItemList(
-                            completedItems, 'No completed data yet');
-                  },
-                ),
-            ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          // Row with Ongoing, Completed, and All Text inside rounded box
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                _buildTabText('Ongoing', isOngoingSelected && !isAllSelected),
+                const SizedBox(width: 16),
+                _buildTabText(
+                    'Completed', !isOngoingSelected && !isAllSelected),
+                const SizedBox(width: 16),
+                _buildTabText('All', isAllSelected),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 16),
+
+          Expanded(
+            child: isAllSelected
+                ? StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: getAllItems(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (snapshot.hasError) {
+                        return const Center(child: Text('Error fetching data'));
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const Center(child: Text('No data yet'));
+                      }
+
+                      final items = snapshot.data!;
+                      return _buildAllItemList(items);
+                    },
+                  )
+                : StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: getCustomerCartItems(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (snapshot.hasError) {
+                        return const Center(child: Text('Error fetching data'));
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const Center(child: Text('No data yet'));
+                      }
+
+                      final items = snapshot.data!;
+                      final ongoingItems = filterItems(items, 'ongoing');
+                      final completedItems = filterItems(items, 'completed');
+
+                      return isOngoingSelected
+                          ? _buildItemList(ongoingItems, 'No ongoing data yet')
+                          : _buildItemList(
+                              completedItems, 'No completed data yet');
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -224,12 +287,19 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
-        final customerInfo = item['data']['customerInfo'] as List<dynamic>;
+        final customerInfo = item['data']['customerInfo'];
+        if (customerInfo == null || customerInfo is! List<dynamic>) {
+          return Container(); // Skip if customerInfo is null or not a list
+        }
         final data =
             customerInfo.isNotEmpty ? customerInfo.first : <String, dynamic>{};
-        final customerId = data['customerId'] as String;
-        final itemId = data['id'] as String;
-        final itemType = data['type'] as String;
+        final customerId = data['customerId'] ?? '';
+        final itemId = data['id'] ?? '';
+        final itemType = data['type'] ?? '';
+
+        if (customerId.isEmpty || itemId.isEmpty || itemType.isEmpty) {
+          return Container(); // Skip if any required fields are empty
+        }
 
         return FutureBuilder<Map<String, dynamic>?>(
           future: getCustomerDetails(customerId),
@@ -269,9 +339,20 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
 
                 return isOngoingSelected
                     ? _buildOngoingCard(
-                        itemData, customerData, title, description, imageUrl)
+                        itemData,
+                        customerData,
+                        title,
+                        description,
+                        imageUrl,
+                        customerId,
+                      )
                     : _buildCompletedCard(
-                        itemData, customerData, title, description, imageUrl);
+                        itemData,
+                        customerData,
+                        title,
+                        description,
+                        imageUrl,
+                      );
               },
             );
           },
@@ -281,11 +362,13 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
   }
 
   Widget _buildOngoingCard(
-      Map<String, dynamic> item,
-      Map<String, dynamic> customerData,
-      String title,
-      String description,
-      String imageUrl) {
+    Map<String, dynamic> item,
+    Map<String, dynamic> customerData,
+    String title,
+    String description,
+    String imageUrl,
+    String customerId,
+  ) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
@@ -336,8 +419,8 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                       MaterialPageRoute(
                         builder: (context) => DetailScreen(
                           data: {
-                            'id': item['id'],
-                            'collection': item['collection'],
+                            'id': item['id'] ?? '',
+                            'collection': item['collection'] ?? '',
                             'image': item['imageUrl'] ?? '',
                             'text': title,
                             'description': description,
@@ -346,16 +429,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                             'profileImage': customerData['profileImage'] ?? '',
                             'profileName':
                                 customerData['name'] ?? 'Unknown user',
-                            'userId': item['userId'],
-                            'age': item['age'],
-                            'breed': item['breed'],
-                            'colour': item['colour'],
-                            'price': item['price'],
-                            'sex': item['sex'],
-                            'weight': item['weight'],
-                            'quantity': item['quantity'],
-                            'experience': item['experience'],
-                            'availability': item['availability'],
+                            'userId': item['userId'] ?? '',
                           },
                           navigationSource: 'ProductCartScreen',
                         ),
@@ -364,6 +438,15 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                   },
                   icon: const Icon(Icons.message_outlined),
                   color: Colors.orange,
+                ),
+                IconButton(
+                  onPressed: () async {
+                    print('Tick button clicked for item: $item'); // Debug print
+                    await finalizeStatus(
+                        item['id'] ?? '', customerId, 'completed');
+                  },
+                  icon: const Icon(Icons.check_circle),
+                  color: Colors.green,
                 ),
               ],
             ),
@@ -394,11 +477,12 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
   }
 
   Widget _buildCompletedCard(
-      Map<String, dynamic> item,
-      Map<String, dynamic> customerData,
-      String title,
-      String description,
-      String imageUrl) {
+    Map<String, dynamic> item,
+    Map<String, dynamic> customerData,
+    String title,
+    String description,
+    String imageUrl,
+  ) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
@@ -459,16 +543,6 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                             'profileImage': customerData['profileImage'] ?? '',
                             'profileName':
                                 customerData['name'] ?? 'Unknown user',
-                            'userId': item['userId'],
-                            'age': item['age'],
-                            'breed': item['breed'],
-                            'colour': item['colour'],
-                            'price': item['price'],
-                            'sex': item['sex'],
-                            'weight': item['weight'],
-                            'quantity': item['quantity'],
-                            'experience': item['experience'],
-                            'availability': item['availability'],
                           },
                           navigationSource: 'ProductCartScreen',
                         ),

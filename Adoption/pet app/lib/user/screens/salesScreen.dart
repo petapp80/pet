@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SalesScreen extends StatefulWidget {
   const SalesScreen({super.key});
@@ -10,58 +11,85 @@ class SalesScreen extends StatefulWidget {
 
 class _SalesScreenState extends State<SalesScreen> {
   String _selectedFilter = 'Today'; // Default filter option
-  final List<Map<String, dynamic>> _salesData = [
-    {
-      'petName': 'Bulldog',
-      'salesAmount': 100,
-      'date': DateTime.now().subtract(const Duration(days: 1))
-    },
-    {
-      'petName': 'Labrador',
-      'salesAmount': 150,
-      'date': DateTime.now().subtract(const Duration(days: 2))
-    },
-    {
-      'petName': 'Poodle',
-      'salesAmount': 200,
-      'date': DateTime.now().subtract(const Duration(days: 7))
-    },
-    {
-      'petName': 'German Shepherd',
-      'salesAmount': 250,
-      'date': DateTime.now().subtract(const Duration(days: 15))
-    },
-  ];
+  List<Map<String, dynamic>> _paymentsData = [];
 
   List<Map<String, dynamic>> get filteredSales {
     DateTime now = DateTime.now();
     switch (_selectedFilter) {
       case 'Today':
-        return _salesData
+        return _paymentsData
             .where((sale) =>
-                sale['date'].day == now.day &&
-                sale['date'].month == now.month &&
-                sale['date'].year == now.year)
+                sale['time'].toDate().day == now.day &&
+                sale['time'].toDate().month == now.month &&
+                sale['time'].toDate().year == now.year)
             .toList();
       case 'This Week':
         DateTime startOfWeek = now.subtract(
             Duration(days: now.weekday - 1)); // Get the start of the week
-        return _salesData
-            .where((sale) => sale['date'].isAfter(startOfWeek))
+        return _paymentsData
+            .where((sale) => sale['time'].toDate().isAfter(startOfWeek))
             .toList();
       case 'This Month':
-        return _salesData
+        return _paymentsData
             .where((sale) =>
-                sale['date'].month == now.month &&
-                sale['date'].year == now.year)
+                sale['time'].toDate().month == now.month &&
+                sale['time'].toDate().year == now.year)
             .toList();
       case 'This Year':
-        return _salesData
-            .where((sale) => sale['date'].year == now.year)
+        return _paymentsData
+            .where((sale) => sale['time'].toDate().year == now.year)
             .toList();
       default:
-        return _salesData;
+        return _paymentsData;
     }
+  }
+
+  double get totalSales {
+    return filteredSales.fold(0, (sum, sale) {
+      double amount = 0;
+      if (sale['amount'] is num) {
+        amount = (sale['amount'] as num).toDouble();
+      } else if (sale['amount'] is String) {
+        amount = double.tryParse(
+                sale['amount'].replaceAll(RegExp(r'[^0-9.]'), '')) ??
+            0;
+      }
+      return sum + amount;
+    });
+  }
+
+  Map<String, double> get salesByCollection {
+    Map<String, double> sales = {'pets': 0, 'products': 0, 'Veterinary': 0};
+    for (var sale in filteredSales) {
+      double amount = 0;
+      if (sale['amount'] is num) {
+        amount = (sale['amount'] as num).toDouble();
+      } else if (sale['amount'] is String) {
+        amount = double.tryParse(
+                sale['amount'].replaceAll(RegExp(r'[^0-9.]'), '')) ??
+            0;
+      }
+      sales[sale['type']] = (sales[sale['type']] ?? 0) + amount;
+    }
+    print("Sales by Collection: $sales");
+    return sales;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPaymentsData();
+  }
+
+  Future<void> _fetchPaymentsData() async {
+    QuerySnapshot snapshot =
+        await FirebaseFirestore.instance.collection('Payments').get();
+    setState(() {
+      _paymentsData = snapshot.docs
+          .map((doc) => doc.data() as Map<String, dynamic>)
+          .toList();
+    });
+    print("Payments Data: $_paymentsData");
   }
 
   @override
@@ -69,7 +97,7 @@ class _SalesScreenState extends State<SalesScreen> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: const Text('Pet Sales Dashboard'),
+        title: const Text('Sales Dashboard'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -110,67 +138,46 @@ class _SalesScreenState extends State<SalesScreen> {
             ),
 
             const SizedBox(height: 20),
-            // Chart Section (FL Chart)
+            // Pie Chart Section (FL Chart)
             SizedBox(
               height: 250,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  barGroups: filteredSales.map((sale) {
-                    int index = filteredSales.indexOf(sale);
-                    return BarChartGroupData(
-                      x: index,
-                      barRods: [
-                        BarChartRodData(
-                          toY: sale['salesAmount'].toDouble(),
-                          color: Colors.blue,
-                          width: 16,
-                        ),
-                      ],
+              child: PieChart(
+                PieChartData(
+                  sections: salesByCollection.entries.map((entry) {
+                    return PieChartSectionData(
+                      value: entry.value,
+                      title: '${entry.key} \n${entry.value.toStringAsFixed(2)}',
+                      color: entry.key == 'pets'
+                          ? Colors.blue
+                          : entry.key == 'products'
+                              ? Colors.green
+                              : Colors.red,
+                      radius: 50,
                     );
                   }).toList(),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 40,
-                        getTitlesWidget: (value, meta) => Text(
-                          value.toInt().toString(),
-                          style: const TextStyle(fontSize: 10),
-                        ),
-                      ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 30,
-                        getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= filteredSales.length ||
-                              value.toInt() < 0) {
-                            return const SizedBox.shrink();
-                          }
-                          return Transform.rotate(
-                            angle: -0.3,
-                            child: Text(
-                              filteredSales[value.toInt()]['petName'],
-                              style: const TextStyle(fontSize: 10),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  gridData: FlGridData(show: false),
-                  borderData: FlBorderData(show: false),
+                  sectionsSpace: 0,
+                  centerSpaceRadius: 40,
                 ),
               ),
             ),
 
             const SizedBox(height: 20),
 
+            // Total Sales Section
+            Text(
+              'Total Sales: \$${totalSales.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+
             // Sales List Section
-            const Text('Sales Data:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Sales Data:',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 10),
             Expanded(
               child: ListView.builder(
@@ -183,10 +190,11 @@ class _SalesScreenState extends State<SalesScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: ListTile(
-                      title: Text(sale['petName']),
-                      subtitle: Text('Sales: \$${sale['salesAmount']}'),
+                      title: Text(sale['id']),
+                      subtitle: Text('Sales: \$${sale['amount']}'),
                       trailing: Text(
-                          '${sale['date'].day}/${sale['date'].month}/${sale['date'].year}'),
+                        '${sale['time'].toDate().day}/${sale['time'].toDate().month}/${sale['time'].toDate().year}',
+                      ),
                     ),
                   );
                 },

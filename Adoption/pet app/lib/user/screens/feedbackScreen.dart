@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:string_similarity/string_similarity.dart';
+import 'package:intl/intl.dart'; // Import to format DateTime
 
 // A model class to hold feedback data
 class Feedback {
@@ -13,6 +16,11 @@ class Feedback {
     required this.rating,
     required this.date,
   });
+
+  @override
+  String toString() {
+    return 'Feedback(user: $user, feedbackText: $feedbackText, rating: $rating, date: $date)';
+  }
 }
 
 class Feedbackscreen extends StatefulWidget {
@@ -23,66 +31,72 @@ class Feedbackscreen extends StatefulWidget {
 }
 
 class _FeedbackscreenState extends State<Feedbackscreen> {
-  // Sample feedback list
-  final List<Feedback> _feedbackList = [
-    Feedback(
-      user: 'User 1',
-      feedbackText: 'Great app!',
-      rating: 5,
-      date: DateTime(2024, 10, 1),
-    ),
-    Feedback(
-      user: 'User 2',
-      feedbackText: 'Needs improvement.',
-      rating: 3,
-      date: DateTime(2024, 11, 10),
-    ),
-    Feedback(
-      user: 'User 3',
-      feedbackText: 'Awesome experience!',
-      rating: 4,
-      date: DateTime(2024, 9, 15),
-    ),
-    Feedback(
-      user: 'User 4',
-      feedbackText: 'Good, but could be faster.',
-      rating: 3,
-      date: DateTime(2024, 8, 20),
-    ),
-    Feedback(
-      user: 'User 5',
-      feedbackText: 'Amazing features!',
-      rating: 5,
-      date: DateTime(2024, 7, 25),
-    ),
-  ];
-
+  List<Feedback> _feedbackList = [];
   List<Feedback> _filteredFeedbackList = [];
   String _searchText = '';
   int? _selectedRating;
-  DateTimeRange? _selectedDateRange;
 
   @override
   void initState() {
     super.initState();
-    _filteredFeedbackList = _feedbackList;
+    _fetchFeedbackData();
   }
 
-  // Filter feedback based on the search, rating, and date range
+  Future<void> _fetchFeedbackData() async {
+    QuerySnapshot feedbackSnapshot =
+        await FirebaseFirestore.instance.collection('review').get();
+    List<Feedback> feedbackList = [];
+
+    for (var doc in feedbackSnapshot.docs) {
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      print("Feedback Data: $data");
+      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+          .collection('user')
+          .doc(data['userId'])
+          .get();
+      Map<String, dynamic> userData =
+          userSnapshot.data() as Map<String, dynamic>;
+      print("User Data for ${data['userId']}: $userData");
+      String userName = userData['name'] ?? 'Unknown User';
+
+      feedbackList.add(
+        Feedback(
+          user: userName,
+          feedbackText: data['text'],
+          rating: (data['rating'] as double).toInt(), // Convert to int
+          date: (data['timestamp'] as Timestamp).toDate(),
+        ),
+      );
+    }
+
+    print("Fetched Feedback List: $feedbackList");
+
+    setState(() {
+      _feedbackList = feedbackList;
+      _filteredFeedbackList = feedbackList;
+    });
+  }
+
+  // Filter feedback based on the search and rating
   void _filterFeedback() {
     setState(() {
       _filteredFeedbackList = _feedbackList.where((feedback) {
         bool matchesSearch = feedback.feedbackText
-            .toLowerCase()
-            .contains(_searchText.toLowerCase());
-        bool matchesRating = _selectedRating == null;
-        feedback.rating == _selectedRating;
-        bool matchesDate = _selectedDateRange == null;
-        (feedback.date.isAfter(_selectedDateRange!.start) &&
-            feedback.date.isBefore(_selectedDateRange!.end));
-        return matchesSearch && matchesRating && matchesDate;
+                .toLowerCase()
+                .contains(_searchText.toLowerCase()) ||
+            feedback.user.toLowerCase().contains(_searchText.toLowerCase()) ||
+            (_searchText.isNotEmpty &&
+                StringSimilarity.compareTwoStrings(
+                        feedback.feedbackText.toLowerCase(),
+                        _searchText.toLowerCase()) >
+                    0.5);
+        bool matchesRating =
+            _selectedRating == null || feedback.rating == _selectedRating;
+        return matchesSearch && matchesRating;
       }).toList();
     });
+
+    print("Filtered Feedback List: $_filteredFeedbackList");
   }
 
   @override
@@ -132,41 +146,6 @@ class _FeedbackscreenState extends State<Feedbackscreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // Filter by Date Range
-            TextButton(
-              onPressed: () async {
-                final DateTimeRange? picked = await showDateRangePicker(
-                  context: context,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2101),
-                  initialDateRange: _selectedDateRange,
-                  builder: (context, child) {
-                    return Theme(
-                      data: ThemeData.light().copyWith(
-                        primaryColor: Colors.blue,
-                        hintColor: const Color.fromARGB(255, 32, 224, 102),
-                        buttonTheme: const ButtonThemeData(
-                            textTheme: ButtonTextTheme.primary),
-                      ),
-                      child: child!,
-                    );
-                  },
-                );
-                if (picked != null && picked != _selectedDateRange) {
-                  setState(() {
-                    _selectedDateRange = picked;
-                    _filterFeedback();
-                  });
-                }
-              },
-              child: Text(
-                _selectedDateRange == null
-                    ? 'Filter by Date '
-                    : 'Selected Date: ${_selectedDateRange!.start.toLocal()} - ${_selectedDateRange!.end.toLocal()}',
-                style: const TextStyle(color: Colors.blue),
-              ),
-            ),
-            const SizedBox(height: 16),
 
             // Display Feedback List
             Expanded(
@@ -190,7 +169,7 @@ class _FeedbackscreenState extends State<Feedbackscreen> {
                             ),
                           ),
                           Text(
-                            'Date: ${feedback.date.toLocal()}',
+                            'Date: ${DateFormat('yyyy-MM-dd – kk:mm').format(feedback.date)}',
                             style: const TextStyle(color: Colors.grey),
                           ),
                         ],

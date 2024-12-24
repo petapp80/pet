@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/chatDetailScreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart'; // Import intl package
+
 import 'floatingbttn.dart';
 import 'productScreen.dart';
 import 'profile.dart';
@@ -145,6 +147,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   } else {
                     final userData =
                         userSnapshot.data!.data() as Map<String, dynamic>;
+
+                    final publishedTime =
+                        (data['publishedTime'] as Timestamp?)?.toDate();
+                    final publishedDate = publishedTime != null
+                        ? DateFormat('dd MMM yyyy').format(publishedTime)
+                        : 'Unknown date';
+
                     return GestureDetector(
                       onTap: () {
                         Navigator.push(
@@ -160,9 +169,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     data['about'] ?? 'No description',
                                 'location':
                                     data['location'] ?? 'Unknown location',
-                                'published':
-                                    data['published'] ?? 'Unknown time',
-                                'profileImage': userData['profileImage'] ?? '',
+                                'published': publishedDate,
+                                'profileImage': userData['profileImage'] ??
+                                    'asset/image/default_profile.png',
                                 'profileName':
                                     userData['name'] ?? 'Unknown user',
                                 'userId': data['userId'],
@@ -189,8 +198,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         text: data[nameField] ?? 'Unknown',
                         description: data['about'] ?? 'No description',
                         location: data['location'] ?? 'Unknown location',
-                        published: data['published'] ?? 'Unknown time',
-                        profileImage: userData['profileImage'] ?? '',
+                        published: publishedDate,
+                        profileImage: userData['profileImage'] != null &&
+                                userData['profileImage'].isNotEmpty
+                            ? NetworkImage(userData['profileImage'])
+                            : const AssetImage(
+                                'asset/image/default_profile.png'),
                         profileName: userData['name'] ?? 'Unknown user',
                         userId: data['userId'],
                       ),
@@ -213,7 +226,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     required String description,
     required String location,
     required String published,
-    required String profileImage,
+    required ImageProvider<Object> profileImage,
     required String profileName,
     required String userId,
   }) {
@@ -268,10 +281,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundImage: profileImage.isNotEmpty
-                      ? NetworkImage(profileImage)
-                      : const AssetImage('asset/image/dog1.png')
-                          as ImageProvider<Object>,
+                  backgroundImage: profileImage,
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -350,7 +360,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       'location': item['location'],
       'published': item['published'],
       'profileName': item['profileName'],
-      'userId': item['userId'], // Add userId to the cart item
+      'userId': item['userId'],
       'addedAt': FieldValue.serverTimestamp(),
     };
 

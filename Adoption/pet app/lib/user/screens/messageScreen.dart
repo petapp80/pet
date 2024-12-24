@@ -119,8 +119,12 @@ class _MessagescreenState extends State<Messagescreen> {
     setState(() {
       _suggestedUsers = querySnapshot.docs
           .where((doc) {
-            final name = doc['name'].toString().toLowerCase();
-            final position = doc['position']?.toString();
+            final name = doc.data().containsKey('name')
+                ? doc['name'].toString().toLowerCase()
+                : "";
+            final position = doc.data().containsKey('position')
+                ? doc['position'].toString()
+                : "";
             final similarity =
                 StringSimilarity.compareTwoStrings(query.toLowerCase(), name);
 
@@ -294,7 +298,7 @@ class _MessagescreenState extends State<Messagescreen> {
               },
             ),
             title: Text(
-              user['name'],
+              user['name'] ?? 'No Name',
               style: TextStyle(
                 color: isDark ? Colors.white : Colors.black,
               ),

@@ -30,7 +30,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   // To store the selected file path
   String? _filePath;
   late String _profileImageUrl;
-  late String _collectionName;
+  String? _collectionName;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isSending = false;
@@ -46,14 +46,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   // Function to initialize collection name
   Future<void> _initializeCollectionName() async {
-    if (widget.navigationSource == 'HomePage') {
-      _collectionName = 'ChatAsBuyer';
-    } else {
-      final positionField =
-          await _getPositionField(FirebaseAuth.instance.currentUser?.uid);
-      _collectionName = _getCollectionName(positionField);
-    }
-    setState(() {});
+    String positionField =
+        await _getPositionField(FirebaseAuth.instance.currentUser?.uid);
+    setState(() {
+      _collectionName = widget.navigationSource == 'HomePage'
+          ? 'ChatAsBuyer'
+          : _getCollectionName(positionField);
+    });
   }
 
   // Function to get the position field of a user
@@ -294,221 +293,231 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ],
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('user')
-                  .doc(FirebaseAuth.instance.currentUser?.uid)
-                  .collection(_collectionName)
-                  .doc(widget.userId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+      body: _collectionName == null
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('user')
+                        .doc(FirebaseAuth.instance.currentUser?.uid)
+                        .collection(_collectionName!)
+                        .doc(widget.userId)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                if (!snapshot.hasData ||
-                    snapshot.data == null ||
-                    !snapshot.data!.exists) {
-                  return const Center(child: Text('No messages yet.'));
-                }
+                      if (!snapshot.hasData ||
+                          snapshot.data == null ||
+                          !snapshot.data!.exists) {
+                        return const Center(child: Text('No messages yet.'));
+                      }
 
-                final chatData = snapshot.data?.data() as Map<String, dynamic>?;
-                var messages = chatData?['messages'] ?? [];
+                      final chatData =
+                          snapshot.data?.data() as Map<String, dynamic>?;
+                      var messages = chatData?['messages'] ?? [];
 
-                messages.sort((a, b) => int.parse(a['timestamp'])
-                    .compareTo(int.parse(b['timestamp'])));
+                      messages.sort((a, b) => int.parse(a['timestamp'])
+                          .compareTo(int.parse(b['timestamp'])));
 
-                // Group messages by date
-                Map<String, List<Map<String, dynamic>>> groupedMessages = {};
-                for (var message in messages) {
-                  String date = DateFormat('yyyy-MM-dd').format(
-                      DateTime.fromMillisecondsSinceEpoch(
-                          int.parse(message['timestamp'])));
-                  if (groupedMessages[date] == null) {
-                    groupedMessages[date] = [];
-                  }
-                  groupedMessages[date]!.add(message);
-                }
+                      // Group messages by date
+                      Map<String, List<Map<String, dynamic>>> groupedMessages =
+                          {};
+                      for (var message in messages) {
+                        String date = DateFormat('yyyy-MM-dd').format(
+                            DateTime.fromMillisecondsSinceEpoch(
+                                int.parse(message['timestamp'])));
+                        if (groupedMessages[date] == null) {
+                          groupedMessages[date] = [];
+                        }
+                        groupedMessages[date]!.add(message);
+                      }
 
-                List<Widget> messageWidgets = [];
-                groupedMessages.forEach((date, dateMessages) {
-                  messageWidgets.add(
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        date,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  );
-                  dateMessages.forEach((message) {
-                    final isMe = message['senderId'] ==
-                        FirebaseAuth.instance.currentUser?.uid;
-                    final displayMessage = message['text'];
-                    final formattedTime = DateFormat('hh:mm a').format(
-                        DateTime.fromMillisecondsSinceEpoch(
-                            int.parse(message['timestamp'])));
+                      List<Widget> messageWidgets = [];
+                      groupedMessages.forEach((date, dateMessages) {
+                        messageWidgets.add(
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              date,
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        );
+                        dateMessages.forEach((message) {
+                          final isMe = message['senderId'] ==
+                              FirebaseAuth.instance.currentUser?.uid;
+                          final displayMessage = message['text'];
+                          final formattedTime = DateFormat('hh:mm a').format(
+                              DateTime.fromMillisecondsSinceEpoch(
+                                  int.parse(message['timestamp'])));
 
-                    messageWidgets.add(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 10, horizontal: 14),
-                        alignment:
-                            isMe ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Column(
-                          crossAxisAlignment: isMe
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
-                          children: [
-                            Material(
-                              borderRadius: BorderRadius.circular(10),
-                              elevation: 5,
-                              color: isMe ? Colors.blue[200] : Colors.grey[300],
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 10, horizontal: 15),
-                                child: Column(
-                                  crossAxisAlignment: isMe
-                                      ? CrossAxisAlignment.end
-                                      : CrossAxisAlignment.start,
-                                  children: [
-                                    if (message['imageUrl'] != null &&
-                                        message['imageUrl'].isNotEmpty)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 10.0),
-                                        child: Image.network(
-                                          message['imageUrl'],
-                                          height: 150,
-                                          width: 150,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    Text(
-                                      displayMessage,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color:
-                                            isMe ? Colors.white : Colors.black,
+                          messageWidgets.add(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 10, horizontal: 14),
+                              alignment: isMe
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: Column(
+                                crossAxisAlignment: isMe
+                                    ? CrossAxisAlignment.end
+                                    : CrossAxisAlignment.start,
+                                children: [
+                                  Material(
+                                    borderRadius: BorderRadius.circular(10),
+                                    elevation: 5,
+                                    color: isMe
+                                        ? Colors.blue[200]
+                                        : Colors.grey[300],
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 10, horizontal: 15),
+                                      child: Column(
+                                        crossAxisAlignment: isMe
+                                            ? CrossAxisAlignment.end
+                                            : CrossAxisAlignment.start,
+                                        children: [
+                                          if (message['imageUrl'] != null &&
+                                              message['imageUrl'].isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  bottom: 10.0),
+                                              child: Image.network(
+                                                message['imageUrl'],
+                                                height: 150,
+                                                width: 150,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          Text(
+                                            displayMessage,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: isMe
+                                                  ? Colors.white
+                                                  : Colors.black,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 5),
+                                          Text(
+                                            formattedTime,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isMe
+                                                  ? Colors.white60
+                                                  : Colors.black54,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      formattedTime,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isMe
-                                            ? Colors.white60
-                                            : Colors.black54,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  });
-                });
+                          );
+                        });
+                      });
 
-                return ListView(
-                  controller: _scrollController,
-                  children: messageWidgets,
-                );
-              },
-            ),
-          ),
-          // Chatbox with attachment icon and send button
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => _pickFile(context), // Open file picker
-                  icon: Icon(
-                    Icons.attach_file,
-                    color: isDark ? Colors.grey[400] : Colors.grey[800],
+                      return ListView(
+                        controller: _scrollController,
+                        children: messageWidgets,
+                      );
+                    },
                   ),
                 ),
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      hintStyle: TextStyle(
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20.0),
-                      ),
-                      filled: true,
-                      fillColor: isDark
-                          ? Colors.grey[800]
-                          : Colors.grey[200], // Input background
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () async {
-                    final message = _messageController.text.trim();
-                    String? imageUrl;
-                    if (_filePath != null) {
-                      imageUrl = await _uploadImageToCloudinary(_filePath!);
-                    }
-                    if (message.isNotEmpty || imageUrl != null) {
-                      await _sendMessage(message, imageUrl: imageUrl);
-                    }
-                  },
-                  icon: _isSending
-                      ? CircularProgressIndicator()
-                      : Icon(
-                          Icons.send,
-                          color: theme.colorScheme.primary,
+                // Chatbox with attachment icon and send button
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => _pickFile(context), // Open file picker
+                        icon: Icon(
+                          Icons.attach_file,
+                          color: isDark ? Colors.grey[400] : Colors.grey[800],
                         ),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Type a message...',
+                            hintStyle: TextStyle(
+                              color:
+                                  isDark ? Colors.grey[400] : Colors.grey[600],
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20.0),
+                            ),
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.grey[800]
+                                : Colors.grey[200], // Input background
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () async {
+                          final message = _messageController.text.trim();
+                          String? imageUrl;
+                          if (_filePath != null) {
+                            imageUrl =
+                                await _uploadImageToCloudinary(_filePath!);
+                          }
+                          if (message.isNotEmpty || imageUrl != null) {
+                            await _sendMessage(message, imageUrl: imageUrl);
+                          }
+                        },
+                        icon: _isSending
+                            ? const CircularProgressIndicator()
+                            : Icon(
+                                Icons.send,
+                                color: theme.colorScheme.primary,
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
+                if (_filePath != null) // Display selected image for sending
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Stack(
+                      children: [
+                        // Display the selected image
+                        Image.file(
+                          File(_filePath!), // Display the selected image
+                          height: 100, // Adjust as needed
+                          width: 100, // Adjust as needed
+                          fit: BoxFit.cover,
+                        ),
+                        // Close button to remove the image selection
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            onPressed:
+                                _clearSelectedImage, // Clear the selected image
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
-          ),
-          if (_filePath != null) // Display selected image for sending
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Stack(
-                children: [
-                  // Display the selected image
-                  Image.file(
-                    File(_filePath!), // Display the selected image
-                    height: 100, // Adjust as needed
-                    width: 100, // Adjust as needed
-                    fit: BoxFit.cover,
-                  ),
-                  // Close button to remove the image selection
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      onPressed:
-                          _clearSelectedImage, // Clear the selected image
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
     );
   }
 }
