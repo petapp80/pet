@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_application_1/user/screens/appointmentScreen.dart';
 import 'package:flutter_application_1/user/screens/login%20screen.dart';
 import 'package:flutter_application_1/user/screens/profile.dart';
 import 'package:flutter_application_1/user/screens/reg.dart';
@@ -50,7 +51,7 @@ class MyApp extends StatelessWidget {
             theme: themeProvider.isDarkTheme
                 ? ThemeData.dark()
                 : ThemeData.light(),
-            home: LoginPage(), // Replace with your starting page
+            home: const SignUpPage(), // Replace with your starting page
           );
         },
       ),

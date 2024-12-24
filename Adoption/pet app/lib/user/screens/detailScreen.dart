@@ -22,8 +22,13 @@ class DetailScreen extends StatefulWidget {
 
 class _DetailScreenState extends State<DetailScreen> {
   late Razorpay _razorpay;
+<<<<<<< HEAD
   String _petType = '';
   bool _isLoading = false;
+=======
+  String? _petItem;
+  String? _selectedTime;
+>>>>>>> d58949e8ca5dd1720e90dac04dfb2b763c26ff2f
 
   @override
   void initState() {
@@ -38,6 +43,48 @@ class _DetailScreenState extends State<DetailScreen> {
   void dispose() {
     _razorpay.clear();
     super.dispose();
+  }
+
+  Future<String?> _getAvailableTimeSlot(String sellerId) async {
+    final times = [
+      "10:00",
+      "10:30",
+      "11:00",
+      "11:30",
+      "12:00",
+      "12:30",
+      "13:00",
+      "13:30",
+      "14:00",
+      "14:30",
+      "15:00",
+      "15:30",
+      "16:00",
+      "16:30",
+      "17:00"
+    ];
+
+    final sellerCustomerSnapshot = await FirebaseFirestore.instance
+        .collection('user')
+        .doc(sellerId)
+        .collection('customers')
+        .get();
+
+    final List<String> allocatedTimes = [];
+    for (var doc in sellerCustomerSnapshot.docs) {
+      List<dynamic> customerInfo = doc.data()['customerInfo'] ?? [];
+      for (var info in customerInfo) {
+        allocatedTimes.add(info['time']);
+      }
+    }
+
+    for (var time in times) {
+      if (!allocatedTimes.contains(time)) {
+        return time;
+      }
+    }
+
+    return null; // No available time slots
   }
 
   void _checkAndInitiatePayment(
@@ -62,11 +109,23 @@ class _DetailScreenState extends State<DetailScreen> {
       return;
     }
 
+<<<<<<< HEAD
     var priceString = docData?['price'] ?? '100';
     var amountString = priceString.replaceAll(RegExp(r'[^0-9.]'), '');
     var amount = double.tryParse(amountString) ??
         100.0; // Default to 100 if parsing fails
     amount *= 100; // converting to paise as Razorpay expects amount in paise
+=======
+    // Check available time slots
+    final availableTime = await _getAvailableTimeSlot(data['userId']);
+    if (availableTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Appointments not available')),
+      );
+      return;
+    }
+    _selectedTime = availableTime;
+>>>>>>> d58949e8ca5dd1720e90dac04dfb2b763c26ff2f
 
     var options = {
       'key': 'rzp_test_D5Vh3hyi1gRBV0',
@@ -131,6 +190,7 @@ class _DetailScreenState extends State<DetailScreen> {
       await userDocRef.set({
         'status': 'ongoing',
         'id': widget.data['id'],
+<<<<<<< HEAD
         'text': widget.data['text'],
         'description': widget.data['description'],
         'image': widget.data['image'],
@@ -139,6 +199,9 @@ class _DetailScreenState extends State<DetailScreen> {
         'userId': widget.data['userId'],
         'published': widget.data['published'],
         'location': widget.data['location'],
+=======
+        'time': _selectedTime, // Add the time field
+>>>>>>> d58949e8ca5dd1720e90dac04dfb2b763c26ff2f
       });
       print('CartList Updated for User');
 
@@ -151,7 +214,14 @@ class _DetailScreenState extends State<DetailScreen> {
       final customerData = {
         'customerId': FirebaseAuth.instance.currentUser?.uid,
         'status': 'ongoing',
+<<<<<<< HEAD
         'type of pet': _petType, // Add pet type here
+=======
+        'type': widget.data['collection'] == 'pets' ? 'pet' : 'product',
+        'id': widget.data['id'],
+        'petItem': _petItem ?? '', // Add the petItem field
+        'time': _selectedTime, // Add the time field
+>>>>>>> d58949e8ca5dd1720e90dac04dfb2b763c26ff2f
       };
 
       final sellerCustomerSnapshot = await sellerDocRef.get();
@@ -206,6 +276,7 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
+<<<<<<< HEAD
   void _promptPetType(BuildContext context, Function(String) onSubmit) {
     TextEditingController _controller = TextEditingController();
 
@@ -231,6 +302,29 @@ class _DetailScreenState extends State<DetailScreen> {
                 Navigator.of(context).pop();
               },
               child: const Text('Okay'),
+=======
+  void _showPetItemDialog(BuildContext context, String field) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Enter Pet Item'),
+          content: TextField(
+            onChanged: (value) {
+              _petItem = value;
+            },
+            decoration: InputDecoration(
+              hintText: 'Pet Item',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _checkAndInitiatePayment(context, widget.data, field);
+              },
+              child: Text('OK'),
+>>>>>>> d58949e8ca5dd1720e90dac04dfb2b763c26ff2f
             ),
           ],
         );
@@ -321,7 +415,31 @@ class _DetailScreenState extends State<DetailScreen> {
                             fontSize: 18,
                           ),
                         ),
+<<<<<<< HEAD
                       ],
+=======
+                      );
+                    },
+                    icon: const Icon(Icons.message_outlined),
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  if (isVeterinaryCollection)
+                    IconButton(
+                      onPressed: () {
+                        _showPetItemDialog(context, 'appointments');
+                      },
+                      icon: const Icon(Icons.event_note_outlined),
+                      color: Theme.of(context).colorScheme.secondary,
+                    )
+                  else
+                    IconButton(
+                      onPressed: () {
+                        _checkAndInitiatePayment(
+                            context, widget.data, 'quantity');
+                      },
+                      icon: const Icon(Icons.add_shopping_cart_outlined),
+                      color: Theme.of(context).colorScheme.tertiary,
+>>>>>>> d58949e8ca5dd1720e90dac04dfb2b763c26ff2f
                     ),
                     const SizedBox(height: 16),
                     Divider(
@@ -503,7 +621,14 @@ class _DetailScreenState extends State<DetailScreen> {
       final customerData = {
         'customerId': userId,
         'status': 'ongoing',
+<<<<<<< HEAD
         'type of pet': _petType, // Add pet type here for veterinary
+=======
+        'type': item['collection'] == 'pets' ? 'pet' : 'product',
+        'id': item['id'],
+        'petItem': _petItem ?? '', // Add the petItem field
+        'time': _selectedTime, // Add the time field
+>>>>>>> d58949e8ca5dd1720e90dac04dfb2b763c26ff2f
       };
 
       final sellerCustomerRef = FirebaseFirestore.instance

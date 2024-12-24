@@ -131,57 +131,6 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
     return null;
   }
 
-  Future<void> finalizeStatus(
-      String itemId, String customerId, String newStatus) async {
-    if (userId.isEmpty || itemId.isEmpty || customerId.isEmpty) return;
-    try {
-      // Access the document in the `customers` collection
-      final customerDocRef = FirebaseFirestore.instance
-          .collection('user')
-          .doc(userId)
-          .collection('customers')
-          .doc(itemId);
-
-      // Retrieve the document
-      final customerDocSnapshot = await customerDocRef.get();
-      if (customerDocSnapshot.exists) {
-        // Get the current data
-        final data = customerDocSnapshot.data() as Map<String, dynamic>;
-
-        // Get the customerInfo array
-        final customerInfoList = data['customerInfo'] as List<dynamic>;
-
-        // Iterate through the customerInfo array and update the status
-        for (var customerInfo in customerInfoList) {
-          if (customerInfo['customerId'] == customerId) {
-            customerInfo['status'] = newStatus;
-            break;
-          }
-        }
-
-        // Update the document in Firestore
-        await customerDocRef.update({'customerInfo': customerInfoList});
-        print('Updated status in customers sub-collection for item: $itemId');
-      } else {
-        print(
-            'No matching document found in customers sub-collection for item: $itemId');
-      }
-
-      // Show a success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Item marked as $newStatus'),
-          duration: const Duration(seconds: 1),
-        ),
-      );
-
-      // Refresh the UI
-      setState(() {});
-    } catch (e) {
-      print('Error updating status: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -339,13 +288,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
 
                 return isOngoingSelected
                     ? _buildOngoingCard(
-                        itemData,
-                        customerData,
-                        title,
-                        description,
-                        imageUrl,
-                        customerId,
-                      )
+                        itemData, customerData, title, description, imageUrl)
                     : _buildCompletedCard(
                         itemData,
                         customerData,
@@ -362,13 +305,11 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
   }
 
   Widget _buildOngoingCard(
-    Map<String, dynamic> item,
-    Map<String, dynamic> customerData,
-    String title,
-    String description,
-    String imageUrl,
-    String customerId,
-  ) {
+      Map<String, dynamic> item,
+      Map<String, dynamic> customerData,
+      String title,
+      String description,
+      String imageUrl) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
@@ -411,6 +352,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
                   onPressed: () {
@@ -438,15 +380,6 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                   },
                   icon: const Icon(Icons.message_outlined),
                   color: Colors.orange,
-                ),
-                IconButton(
-                  onPressed: () async {
-                    print('Tick button clicked for item: $item'); // Debug print
-                    await finalizeStatus(
-                        item['id'] ?? '', customerId, 'completed');
-                  },
-                  icon: const Icon(Icons.check_circle),
-                  color: Colors.green,
                 ),
               ],
             ),
@@ -653,11 +586,11 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                             builder: (context) => collection == 'pets'
                                 ? AddScreen(
                                     fromScreen: 'ProductCartScreen',
-                                    docId: item['id'], // Optional
+                                    docId: item['id'], // Pass document ID
                                   )
                                 : ProductsAddScreen(
                                     fromScreen: 'ProductCartScreen',
-                                    docId: item['id'], // Optional
+                                    docId: item['id'], // Pass document ID
                                   ),
                           ),
                         );

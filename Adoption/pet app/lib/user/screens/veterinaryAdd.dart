@@ -221,6 +221,10 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
       return;
     }
 
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
@@ -300,199 +304,217 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
         const SnackBar(content: Text('Failed to Publish Veterinary Profile')),
       );
     }
+
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                // Name TextField
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Name',
-                    border: OutlineInputBorder(),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Add Veterinary Profile'),
+      ),
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  // Name TextField
+                  TextField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Name',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // Location TextField
-                TextField(
-                  controller: _locationController,
-                  decoration: InputDecoration(
-                    labelText: 'Location',
-                    border: OutlineInputBorder(),
+                  // Location TextField
+                  TextField(
+                    controller: _locationController,
+                    decoration: InputDecoration(
+                      labelText: 'Location',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // Experience TextField
-                TextField(
-                  controller: _experienceController,
-                  decoration: InputDecoration(
-                    labelText: 'Experience',
-                    border: OutlineInputBorder(),
+                  // Experience TextField
+                  TextField(
+                    controller: _experienceController,
+                    decoration: InputDecoration(
+                      labelText: 'Experience',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // About TextArea
-                TextField(
-                  controller: _aboutController,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    labelText: 'About',
-                    border: OutlineInputBorder(),
+                  // About TextArea
+                  TextField(
+                    controller: _aboutController,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      labelText: 'About',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // Appointments per Day
-                TextField(
-                  controller: _appointmentsController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'No. of Appointments/Day',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (value) {
-                    if (int.tryParse(value) != null && int.parse(value) > 30) {
-                      _appointmentsController.text = '30';
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Maximum appointments per day is 30.'),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Price and Currency Selection
-                Row(
-                  children: [
-                    // Currency Dropdown Button
-                    DropdownButton<String>(
-                      value: _selectedCurrency,
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedCurrency = newValue!;
-                        });
-                      },
-                      items: <String>['USD', 'INR']
-                          .map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
+                  // Appointments per Day
+                  TextField(
+                    controller: _appointmentsController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'No. of Appointments/Day',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      if (int.tryParse(value) != null &&
+                          int.parse(value) > 30) {
+                        _appointmentsController.text = '30';
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content:
+                                Text('Maximum appointments per day is 30.'),
+                          ),
                         );
-                      }).toList(),
-                    ),
-                    const SizedBox(width: 16),
-
-                    // Price Input Field
-                    Expanded(
-                      child: TextField(
-                        controller: _priceController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Price',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Image Picker Section
-                Row(
-                  children: [
-                    // Button to select an image
-                    ElevatedButton(
-                      onPressed: _pickImage,
-                      child:
-                          Text(_image == null ? 'Pick Image' : 'Change Image'),
-                    ),
-                    if (_image != null) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16),
-                        child: Stack(
-                          children: [
-                            Image.file(
-                              _image!,
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                            ),
-                            Positioned(
-                              right: 0,
-                              top: 0,
-                              child: IconButton(
-                                icon: Icon(Icons.close, color: Colors.red),
-                                onPressed: _removeImage,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ] else if (_existingImageUrl != null) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16),
-                        child: Stack(
-                          children: [
-                            Image.network(
-                              _existingImageUrl!,
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                            ),
-                            Positioned(
-                              right: 0,
-                              top: 0,
-                              child: IconButton(
-                                icon: Icon(Icons.close, color: Colors.red),
-                                onPressed: _removeImage,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ]
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Publish Button
-                ElevatedButton(
-                  onPressed: _publishVeterinaryProfile,
-                  child: Text('Publish'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 50), // Full-width button
+                      }
+                    },
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_isLoading)
-          Container(
-            color: Colors.black
-                .withOpacity(0.5), // Transparent and dark background
-            child: Center(
-              child: Lottie.asset(
-                'asset/image/loading.json',
-                width: 100, // Small size for the Lottie animation
-                height: 100,
+                  const SizedBox(height: 16),
+
+                  // Price and Currency Selection
+                  Row(
+                    children: [
+                      // Currency Dropdown Button
+                      DropdownButton<String>(
+                        value: _selectedCurrency,
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedCurrency = newValue!;
+                          });
+                        },
+                        items: <String>['USD', 'INR']
+                            .map<DropdownMenuItem<String>>((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(width: 16),
+
+                      // Price Input Field
+                      Expanded(
+                        child: TextField(
+                          controller: _priceController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Price',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Image Picker Section
+                  Row(
+                    children: [
+                      // Button to select an image
+                      ElevatedButton(
+                        onPressed: _pickImage,
+                        child: Text(
+                            _image == null ? 'Pick Image' : 'Change Image'),
+                      ),
+                      if (_image != null) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(left: 16),
+                          child: Stack(
+                            children: [
+                              Image.file(
+                                _image!,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: IconButton(
+                                  icon: Icon(Icons.close, color: Colors.red),
+                                  onPressed: _removeImage,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else if (_existingImageUrl != null) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(left: 16),
+                          child: Stack(
+                            children: [
+                              Image.network(
+                                _existingImageUrl!,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: IconButton(
+                                  icon: Icon(Icons.close, color: Colors.red),
+                                  onPressed: _removeImage,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ]
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Publish Button
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _publishVeterinaryProfile,
+                    child: _isLoading
+                        ? const CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          )
+                        : const Text('Publish'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize:
+                          Size(double.infinity, 50), // Full-width button
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-      ],
+          if (_isLoading)
+            Container(
+              color: Colors.black
+                  .withOpacity(0.5), // Transparent and dark background
+              child: Center(
+                child: Lottie.asset(
+                  'asset/image/loading.json',
+                  width: 100, // Small size for the Lottie animation
+                  height: 100,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
