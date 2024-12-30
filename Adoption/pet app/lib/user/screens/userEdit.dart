@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 
 class UserEdit extends StatefulWidget {
   final String name;
-  final String email;
+  final String position;
 
   const UserEdit({
     super.key,
     required this.name,
-    required this.email,
+    required this.position,
   });
 
   @override
@@ -17,16 +17,16 @@ class UserEdit extends StatefulWidget {
 
 class _UserEditState extends State<UserEdit> {
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _positionController = TextEditingController();
 
   bool nameEditMode = false;
-  bool emailEditMode = false;
+  bool positionEditMode = false;
 
   @override
   void initState() {
     super.initState();
     _nameController.text = widget.name;
-    _emailController.text = widget.email;
+    _positionController.text = widget.position;
   }
 
   // Function to save changes
@@ -37,7 +37,7 @@ class _UserEditState extends State<UserEdit> {
           .doc(widget.name)
           .update({
         'name': _nameController.text,
-        'email': _emailController.text,
+        'position': _positionController.text,
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Changes saved successfully!')),
@@ -141,14 +141,14 @@ class _UserEditState extends State<UserEdit> {
                   },
                 ),
                 const SizedBox(height: 10),
-                // Email Field
+                // Position Field
                 _buildLabelTextField(
-                  label: 'Email',
-                  controller: _emailController,
-                  editMode: emailEditMode,
+                  label: 'Position',
+                  controller: _positionController,
+                  editMode: positionEditMode,
                   onEditPressed: () {
                     setState(() {
-                      emailEditMode = !emailEditMode;
+                      positionEditMode = !positionEditMode;
                     });
                   },
                 ),

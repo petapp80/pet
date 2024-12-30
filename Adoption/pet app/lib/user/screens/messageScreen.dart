@@ -3,11 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:string_similarity/string_similarity.dart';
 import 'chatDetailScreen.dart'; // Import the ChatDetailScreen
+import 'aiChat.dart'; // Import the AIWebView
 
 class Messagescreen extends StatefulWidget {
   final String? navigationSource; // Make this parameter optional
 
-  const Messagescreen({super.key, this.navigationSource}); // Add this line
+  const Messagescreen({super.key, this.navigationSource});
 
   @override
   State<Messagescreen> createState() => _MessagescreenState();
@@ -17,7 +18,7 @@ class _MessagescreenState extends State<Messagescreen> {
   List<Map<String, dynamic>> _filteredMessages = [];
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  List<Map<String, dynamic>> _suggestedUsers = []; // Change type to dynamic
+  List<Map<String, dynamic>> _suggestedUsers = [];
 
   @override
   void initState() {
@@ -53,7 +54,13 @@ class _MessagescreenState extends State<Messagescreen> {
         .get();
 
     setState(() {
-      _filteredMessages = [];
+      _filteredMessages = [
+        {
+          'name': 'Pet App AI',
+          'profileImage': 'asset/image/ai_logo.jpg',
+          'userId': 'ai_user', // A placeholder ID for Pet App AI
+        }
+      ];
     });
 
     for (var doc in querySnapshot.docs) {
@@ -68,12 +75,8 @@ class _MessagescreenState extends State<Messagescreen> {
 
       final receiverData = receiverDoc.data() as Map<String, dynamic>?;
       final name = receiverData?['name'] ?? 'No Name';
-      final profileImage = (receiverData != null &&
-              receiverData.containsKey('profileImage') &&
-              receiverData['profileImage'] is String &&
-              (receiverData['profileImage'] as String).isNotEmpty)
-          ? receiverData['profileImage']
-          : 'asset/image/default_profile.png';
+      final profileImage =
+          receiverData?['profileImage'] ?? 'asset/image/default_profile.png';
 
       setState(() {
         _filteredMessages.add({
@@ -106,7 +109,6 @@ class _MessagescreenState extends State<Messagescreen> {
   Future<void> _searchUsers(String query) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (query.isEmpty) {
-      // Corrected line
       setState(() {
         _suggestedUsers = [];
       });
@@ -153,7 +155,6 @@ class _MessagescreenState extends State<Messagescreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Use theme-dependent colors
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -237,22 +238,30 @@ class _MessagescreenState extends State<Messagescreen> {
                             ),
                           ),
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ChatDetailScreen(
-                                  name: message["name"],
-                                  image: message["profileImage"] ==
-                                          'asset/image/default_profile.png'
-                                      ? 'asset/image/default_profile.png'
-                                      : message["profileImage"],
-                                  navigationSource:
-                                      widget.navigationSource ?? 'Default',
-                                  userId: message[
-                                      "userId"], // Pass the userId to ChatDetailScreen
+                            if (message["userId"] == 'ai_user') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AIWebView(),
                                 ),
-                              ),
-                            );
+                              );
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatDetailScreen(
+                                    name: message["name"],
+                                    image: message["profileImage"] ==
+                                            'asset/image/default_profile.png'
+                                        ? 'asset/image/default_profile.png'
+                                        : message["profileImage"],
+                                    navigationSource:
+                                        widget.navigationSource ?? 'Default',
+                                    userId: message["userId"],
+                                  ),
+                                ),
+                              );
+                            }
                           },
                         ),
                       );

@@ -38,6 +38,8 @@ dependencies:
   http: ^1.2.2
   string_similarity: ^2.0.0
   intl: ^0.17.0
+  cron: 0.6.1
+  webview_flutter: ^4.10.0
 
 
 

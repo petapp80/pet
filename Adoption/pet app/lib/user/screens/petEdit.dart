@@ -7,6 +7,7 @@ class PetEdit extends StatefulWidget {
   final String userName;
   final String userEmail;
   final String userId;
+  final String petId;
 
   const PetEdit({
     super.key,
@@ -15,6 +16,7 @@ class PetEdit extends StatefulWidget {
     required this.userName,
     required this.userEmail,
     required this.userId,
+    required this.petId,
   });
 
   @override
@@ -54,9 +56,7 @@ class _PetEditState extends State<PetEdit> {
   @override
   void initState() {
     super.initState();
-    _initializePetFields(widget.petData);
-    _nameController.text = widget.userName;
-    _userIdController.text = widget.userId;
+    _fetchPetData();
   }
 
   Future<void> _fetchPetData() async {
@@ -65,7 +65,7 @@ class _PetEditState extends State<PetEdit> {
           .collection('user')
           .doc(widget.userId)
           .collection('pets')
-          .doc(widget.name)
+          .doc(widget.petId)
           .get();
       if (petDoc.exists) {
         var petData = petDoc.data();
@@ -80,26 +80,29 @@ class _PetEditState extends State<PetEdit> {
 
   void _initializePetFields(Map<String, dynamic> petData) {
     setState(() {
-      _aboutController.text = petData['about'] ?? '';
-      _ageController.text = petData['age'] ?? '';
-      _breedController.text = petData['breed'] ?? '';
-      _colourController.text = petData['colour'] ?? '';
-      _imagePublicIdController.text = petData['imagePublicId'] ?? '';
-      _imageUrlController.text = petData['imageUrl'] ?? '';
-      _locationController.text = petData['location'] ?? '';
-      _petTypeController.text = petData['petType'] ?? '';
-      _priceController.text = petData['price'] ?? '';
-      _sexController.text = petData['sex'] ?? '';
-      _weightController.text = petData['weight'] ?? '';
+      _nameController.text = widget.userName;
+      _aboutController.text = petData['about'] ?? 'null';
+      _ageController.text = petData['age'] ?? 'null';
+      _breedController.text = petData['breed'] ?? 'null';
+      _colourController.text = petData['colour'] ?? 'null';
+      _imagePublicIdController.text = petData['imagePublicId'] ?? 'null';
+      _imageUrlController.text = petData['imageUrl'] ?? 'null';
+      _locationController.text = petData['location'] ?? 'null';
+      _petTypeController.text = petData['petType'] ?? 'null';
+      _priceController.text = petData['price'] ?? 'null';
+      _sexController.text = petData['sex'] ?? 'null';
+      _userIdController.text = petData['userId'] ?? 'null';
+      _weightController.text = petData['weight'] ?? 'null';
     });
   }
 
-  // Function to save changes
   Future<void> _saveChanges() async {
     try {
       await FirebaseFirestore.instance
+          .collection('user')
+          .doc(widget.userId)
           .collection('pets')
-          .doc(widget.name)
+          .doc(widget.petId)
           .update({
         'about': _aboutController.text,
         'age': _ageController.text,
@@ -123,35 +126,20 @@ class _PetEditState extends State<PetEdit> {
 
   Future<void> _deletePet() async {
     try {
-      // Fetch the document where userId matches and name is the widget.name
-      final querySnapshot = await FirebaseFirestore.instance
+      await FirebaseFirestore.instance
+          .collection('user')
+          .doc(widget.userId)
           .collection('pets')
-          .where('userId', isEqualTo: widget.userId)
-          .get();
+          .doc(widget.petId)
+          .delete();
 
-      // Check if the document exists
-      if (querySnapshot.docs.isNotEmpty) {
-        // Get the document ID
-        final docId = querySnapshot.docs.first.id;
+      print('Pet deleted: ${widget.name}');
 
-        // Delete the document using its ID
-        await FirebaseFirestore.instance.collection('pets').doc(docId).delete();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pet deleted successfully')),
+      );
 
-        print('Pet deleted: ${widget.name}');
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pet deleted successfully')),
-        );
-
-        // Close the current screen and return true to indicate success
-        Navigator.pop(context, true);
-      } else {
-        // Document not found
-        print('No matching pet found');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No matching pet found')),
-        );
-      }
+      Navigator.pop(context, true);
     } catch (e) {
       print('Error deleting pet: $e');
       ScaffoldMessenger.of(context).showSnackBar(

@@ -220,25 +220,11 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
             .update(productData);
       }
 
-<<<<<<< HEAD
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Product Published Successfully!')),
         );
       }
-=======
-      // Update user's position to Buyer-Seller
-      await FirebaseFirestore.instance.collection('user').doc(userId).update({
-        'position': 'Buyer-Seller',
-      });
-
-      print(
-          "Product ${widget.docId == null || widget.docId!.isEmpty ? 'added' : 'updated'}: $productData");
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Product Published Successfully!')),
-      );
->>>>>>> d58949e8ca5dd1720e90dac04dfb2b763c26ff2f
 
       if (widget.fromScreen == 'AddItemScreen') {
         Navigator.pushAndRemoveUntil(

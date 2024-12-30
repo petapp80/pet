@@ -12,6 +12,7 @@ class SalesScreen extends StatefulWidget {
 class _SalesScreenState extends State<SalesScreen> {
   String _selectedFilter = 'Today'; // Default filter option
   List<Map<String, dynamic>> _paymentsData = [];
+  bool _isLoading = true; // Loading state
 
   List<Map<String, dynamic>> get filteredSales {
     DateTime now = DateTime.now();
@@ -88,6 +89,7 @@ class _SalesScreenState extends State<SalesScreen> {
       _paymentsData = snapshot.docs
           .map((doc) => doc.data() as Map<String, dynamic>)
           .toList();
+      _isLoading = false; // Set loading state to false once data is loaded
     });
     print("Payments Data: $_paymentsData");
   }
@@ -99,110 +101,108 @@ class _SalesScreenState extends State<SalesScreen> {
         centerTitle: true,
         title: const Text('Sales Dashboard'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Filter Section
-            Row(
-              children: [
-                DropdownButton<String>(
-                  value: _selectedFilter,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedFilter = newValue!;
-                    });
-                  },
-                  items: <String>[
-                    'Today',
-                    'This Week',
-                    'This Month',
-                    'This Year'
-                  ].map<DropdownMenuItem<String>>((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {
-                    // Add more search functionality here if needed
-                    print('Searching...');
-                  },
-                ),
-              ],
-            ),
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(), // Show loading indicator
+            )
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Filter Section
+                  Row(
+                    children: [
+                      DropdownButton<String>(
+                        value: _selectedFilter,
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedFilter = newValue!;
+                          });
+                        },
+                        items: <String>[
+                          'Today',
+                          'This Week',
+                          'This Month',
+                          'This Year'
+                        ].map<DropdownMenuItem<String>>((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
 
-            const SizedBox(height: 20),
-            // Pie Chart Section (FL Chart)
-            SizedBox(
-              height: 250,
-              child: PieChart(
-                PieChartData(
-                  sections: salesByCollection.entries.map((entry) {
-                    return PieChartSectionData(
-                      value: entry.value,
-                      title: '${entry.key} \n${entry.value.toStringAsFixed(2)}',
-                      color: entry.key == 'pets'
-                          ? Colors.blue
-                          : entry.key == 'products'
-                              ? Colors.green
-                              : Colors.red,
-                      radius: 50,
-                    );
-                  }).toList(),
-                  sectionsSpace: 0,
-                  centerSpaceRadius: 40,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Total Sales Section
-            Text(
-              'Total Sales: \$${totalSales.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Sales List Section
-            const Text(
-              'Sales Data:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: ListView.builder(
-                itemCount: filteredSales.length,
-                itemBuilder: (context, index) {
-                  var sale = filteredSales[index];
-                  return Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ListTile(
-                      title: Text(sale['id']),
-                      subtitle: Text('Sales: \$${sale['amount']}'),
-                      trailing: Text(
-                        '${sale['time'].toDate().day}/${sale['time'].toDate().month}/${sale['time'].toDate().year}',
+                  const SizedBox(height: 20),
+                  // Pie Chart Section (FL Chart)
+                  SizedBox(
+                    height: 250,
+                    child: PieChart(
+                      PieChartData(
+                        sections: salesByCollection.entries.map((entry) {
+                          return PieChartSectionData(
+                            value: entry.value,
+                            title:
+                                '${entry.key} \n${entry.value.toStringAsFixed(2)}',
+                            color: entry.key == 'pets'
+                                ? Colors.blue
+                                : entry.key == 'products'
+                                    ? Colors.green
+                                    : Colors.red,
+                            radius: 50,
+                          );
+                        }).toList(),
+                        sectionsSpace: 0,
+                        centerSpaceRadius: 40,
                       ),
                     ),
-                  );
-                },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Total Sales Section
+                  Text(
+                    'Total Sales: \$${totalSales.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Sales List Section
+                  const Text(
+                    'Sales Data:',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filteredSales.length,
+                      itemBuilder: (context, index) {
+                        var sale = filteredSales[index];
+                        return Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ListTile(
+                            title: Text(sale['id']),
+                            subtitle: Text('Sales: \$${sale['amount']}'),
+                            trailing: Text(
+                              '${sale['time'].toDate().day}/${sale['time'].toDate().month}/${sale['time'].toDate().year}',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:string_similarity/string_similarity.dart';
 import 'userEdit.dart';
 import 'petEdit.dart';
 import 'productEdit.dart';
@@ -27,17 +28,19 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
       List<Map<String, dynamic>> data;
       switch (category) {
         case 'Users':
-          final userSnapshot = await FirebaseFirestore.instance
-              .collection('user')
-              .where('name', isGreaterThanOrEqualTo: query)
-              .get();
-          data = userSnapshot.docs.map((doc) => doc.data()).toList();
+          final userSnapshot =
+              await FirebaseFirestore.instance.collection('user').get();
+          data = userSnapshot.docs
+              .map((doc) => {
+                    'name': doc.data()['name'] ?? 'No name',
+                    'email': doc.data()['email'] ?? 'No email',
+                    'position': doc.data()['position'] ?? 'No position',
+                  })
+              .toList();
           break;
         case 'Pets':
-          final userSnapshot = await FirebaseFirestore.instance
-              .collection('user')
-              .where('name', isGreaterThanOrEqualTo: query)
-              .get();
+          final userSnapshot =
+              await FirebaseFirestore.instance.collection('user').get();
           final petData = await Future.wait(userSnapshot.docs.map((doc) async {
             final userId = doc.id;
             final userName = doc.data()['name'];
@@ -46,21 +49,20 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
             return petsSnapshot.docs.map((petDoc) {
               final pet = petDoc.data();
               return {
-                ...pet,
-                'userId': userId,
+                'petDocId': petDoc.id, // Add pet document ID
                 'userName': userName,
-                'userEmail': userEmail,
-                'name': userName,
+                'userEmail': userEmail, // Add userEmail
+                'userId': userId, // Add userId
+                'petType': pet['petType'] ?? 'No pet type',
+                'about': pet['about'] ?? 'No about information',
               };
             }).toList();
           }));
-          data = petData.expand((x) => x).toList();
+          data = petData.expand((x) => x).toList().cast<Map<String, dynamic>>();
           break;
         case 'Products':
-          final userSnapshot = await FirebaseFirestore.instance
-              .collection('user')
-              .where('name', isGreaterThanOrEqualTo: query)
-              .get();
+          final userSnapshot =
+              await FirebaseFirestore.instance.collection('user').get();
           final productData =
               await Future.wait(userSnapshot.docs.map((doc) async {
             final userId = doc.id;
@@ -71,29 +73,50 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
             return productsSnapshot.docs.map((productDoc) {
               final product = productDoc.data();
               return {
-                ...product,
-                'userId': userId,
-                'userName': userName,
-                'userEmail': userEmail,
                 'name': userName,
+                'productName': product['productName'] ?? 'No product name',
+                'description': product['description'] ?? 'No description',
               };
             }).toList();
           }));
-          data = productData.expand((x) => x).toList();
+          data = productData
+              .expand((x) => x)
+              .toList()
+              .cast<Map<String, dynamic>>();
           break;
         case 'Veterinary':
-          final vetSnapshot = await FirebaseFirestore.instance
-              .collection('veterinary')
-              .where('name', isGreaterThanOrEqualTo: query)
-              .get();
-          data = vetSnapshot.docs.map((doc) => doc.data()).toList();
+          final vetSnapshot =
+              await FirebaseFirestore.instance.collection('veterinary').get();
+          data = vetSnapshot.docs
+              .map((doc) => doc.data())
+              .toList()
+              .cast<Map<String, dynamic>>();
           break;
         default:
           data = [];
           break;
       }
+
+      // Filter data using string similarity
+      final filteredData = data.where((item) {
+        String searchString;
+        if (category == 'Users') {
+          searchString = item['name']?.toString() ?? '';
+        } else if (category == 'Pets') {
+          searchString = item['userName']?.toString() ?? '';
+        } else if (category == 'Products') {
+          searchString = item['name']?.toString() ?? '';
+        } else if (category == 'Veterinary') {
+          searchString = item['name']?.toString() ?? '';
+        } else {
+          searchString = '';
+        }
+        return searchString.similarityTo(query) >
+            0.3; // You can adjust the threshold value as needed
+      }).toList();
+
       setState(() {
-        searchResults = data;
+        searchResults = filteredData;
       });
     } catch (e) {
       print('Error fetching data: $e');
@@ -106,16 +129,17 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
       case 'Users':
         editScreen = UserEdit(
           name: item['name'] ?? 'No name',
-          email: item['email'] ?? 'No email',
+          position: item['position'] ?? 'No position',
         );
         break;
       case 'Pets':
         editScreen = PetEdit(
-          name: item['name'] ?? 'No name',
+          name: item['userName'] ?? 'No name',
           petData: item,
           userName: item['userName'] ?? 'No user name',
           userEmail: item['userEmail'] ?? 'No user email',
           userId: item['userId'] ?? 'No userId',
+          petId: item['petDocId'] ?? 'No petId', // Pass the pet document ID
         );
         break;
       case 'Products':
@@ -180,46 +204,16 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
         padding: const EdgeInsets.all(8.0),
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      selectedCategory = 'Users';
-                      searchResults = [];
-                    });
-                  },
-                  child: const Text('Users'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      selectedCategory = 'Pets';
-                      searchResults = [];
-                    });
-                  },
-                  child: const Text('Pets'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      selectedCategory = 'Products';
-                      searchResults = [];
-                    });
-                  },
-                  child: const Text('Products'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      selectedCategory = 'Veterinary';
-                      searchResults = [];
-                    });
-                  },
-                  child: const Text('Veterinary'),
-                ),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterButton('Users'),
+                  _buildFilterButton('Pets'),
+                  _buildFilterButton('Products'),
+                  _buildFilterButton('Veterinary'),
+                ],
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -245,20 +239,23 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
                       itemCount: searchResults.length,
                       itemBuilder: (context, index) {
                         final item = searchResults[index];
+                        String displayText;
+                        if (selectedCategory == 'Users') {
+                          displayText = '${item['name']}, ${item['email']}';
+                        } else if (selectedCategory == 'Pets') {
+                          displayText =
+                              '${item['userName']}, Type: ${item['petType']}, About: ${item['about']}';
+                        } else if (selectedCategory == 'Products') {
+                          displayText =
+                              '${item['name']}, Product: ${item['productName']}, Description: ${item['description']}';
+                        } else if (selectedCategory == 'Veterinary') {
+                          displayText = '${item['name']}, ${item['email']}';
+                        } else {
+                          displayText = 'No display text';
+                        }
                         return Card(
                           child: ListTile(
-                            title: Text(item['name'] ?? 'No name'),
-                            subtitle: Text(
-                              selectedCategory == 'Users'
-                                  ? item['email'] ?? 'No email'
-                                  : selectedCategory == 'Pets'
-                                      ? item['about'] ?? 'No About Information'
-                                      : selectedCategory == 'Products'
-                                          ? item['description'] ??
-                                              'No Description'
-                                          : item['about'] ??
-                                              'No About Information',
-                            ),
+                            title: Text(displayText),
                             onTap: () => _navigateToEditScreen(item),
                           ),
                         );
@@ -281,6 +278,25 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
         });
         Navigator.of(context).pop();
       },
+    );
+  }
+
+  Widget _buildFilterButton(String category) {
+    bool isSelected = selectedCategory == category;
+    return ElevatedButton(
+      onPressed: () {
+        setState(() {
+          selectedCategory = category;
+          searchResults = [];
+        });
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isSelected ? Colors.blue : Colors.grey.shade600,
+      ),
+      child: Text(
+        category,
+        style: const TextStyle(color: Colors.white),
+      ),
     );
   }
 }

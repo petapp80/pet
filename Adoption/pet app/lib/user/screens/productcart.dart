@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'detailScreen.dart';
 import 'productsAddScreen.dart';
 import 'addScreen.dart';
-import 'package:rxdart/rxdart.dart';
 
 class ProductCartScreen extends StatefulWidget {
   const ProductCartScreen({super.key});
@@ -36,76 +35,32 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
       return snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         return {
-          'id': doc.id,
-          'data': data,
+          'id': data['id'],
+          'customerId': data['customerId'],
+          'status': data['status'],
+          'type': data['type'],
         };
       }).toList();
     });
   }
 
   Stream<List<Map<String, dynamic>>> getAllItems() {
-    return CombineLatestStream.list([
-      FirebaseFirestore.instance
-          .collection('user')
-          .doc(userId)
-          .collection('products')
-          .snapshots(),
-      FirebaseFirestore.instance
-          .collection('user')
-          .doc(userId)
-          .collection('pets')
-          .snapshots(),
-    ]).map((snapshots) {
-      final productsSnapshot = snapshots[0] as QuerySnapshot;
-      final petsSnapshot = snapshots[1] as QuerySnapshot;
-
-      print('Products Snapshot: ${productsSnapshot.docs.length} documents');
-      print('Pets Snapshot: ${petsSnapshot.docs.length} documents');
-
-      final products = productsSnapshot.docs.map((doc) {
-        print('Product: ${doc.data()}');
+    return FirebaseFirestore.instance
+        .collection('user')
+        .doc(userId)
+        .collection('customers')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
         return {
-          'id': doc.id,
-          'data': doc.data() as Map<String, dynamic>,
-          'collection': 'products',
+          'id': data['id'],
+          'customerId': data['customerId'],
+          'status': data['status'],
+          'type': data['type'],
         };
       }).toList();
-
-      final pets = petsSnapshot.docs.map((doc) {
-        print('Pet: ${doc.data()}');
-        return {
-          'id': doc.id,
-          'data': doc.data() as Map<String, dynamic>,
-          'collection': 'pets',
-        };
-      }).toList();
-
-      print('Combined List: ${products.length + pets.length} items');
-
-      return [...products, ...pets];
     });
-  }
-
-  List<Map<String, dynamic>> filterItems(
-      List<Map<String, dynamic>> items, String status) {
-    return items.where((item) {
-      final customerInfo = item['data']['customerInfo'];
-      if (customerInfo == null || customerInfo is! List<dynamic>) {
-        return false;
-      }
-      final matchingItems =
-          customerInfo.where((info) => info['status'] == status).toList();
-      return matchingItems.isNotEmpty;
-    }).map((item) {
-      final customerInfo = (item['data']['customerInfo'] as List<dynamic>)
-          .where((info) => info['status'] == status)
-          .map((info) => info as Map<String, dynamic>)
-          .toList();
-      return {
-        'id': item['id'],
-        'data': {...item['data'], 'customerInfo': customerInfo},
-      };
-    }).toList();
   }
 
   Future<Map<String, dynamic>?> getCustomerDetails(String customerId) async {
@@ -122,13 +77,67 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
 
   Future<Map<String, dynamic>?> getItemDetails(String id, String type) async {
     if (id.isEmpty || type.isEmpty) return null;
-    final collection = type == 'pet' ? 'pets' : 'products';
+    final collection = type == 'pets' ? 'pets' : 'products';
     final doc =
         await FirebaseFirestore.instance.collection(collection).doc(id).get();
     if (doc.exists) {
       return doc.data() as Map<String, dynamic>?;
     }
     return null;
+  }
+
+  Future<void> finalizeStatus(
+      String itemId, String customerId, String newStatus) async {
+    if (userId.isEmpty || itemId.isEmpty || customerId.isEmpty) return;
+    try {
+      // Access all documents in the `customers` collection
+      final customersCollection = FirebaseFirestore.instance
+          .collection('user')
+          .doc(userId)
+          .collection('customers');
+
+      // Retrieve all documents and match `customerId` and `id` fields
+      final querySnapshot = await customersCollection
+          .where('customerId', isEqualTo: customerId)
+          .where('id', isEqualTo: itemId)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // Get the document reference
+        final docRef = querySnapshot.docs.first.reference;
+
+        // Update the status in the `customers` collection
+        await docRef.update({'status': newStatus});
+        print('Updated status in customers collection for item: $itemId');
+
+        // Access the `CartList` subcollection of the customer
+        final cartListDocRef = FirebaseFirestore.instance
+            .collection('user')
+            .doc(customerId)
+            .collection('CartList')
+            .doc(itemId);
+
+        // Update the status in the `CartList` subcollection
+        await cartListDocRef.update({'status': newStatus});
+        print('Updated status in CartList subcollection for item: $itemId');
+
+        // Show a success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Item marked as $newStatus'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+
+        // Refresh the UI
+        setState(() {});
+      } else {
+        print(
+            'No matching document found in customers collection for item: $itemId');
+      }
+    } catch (e) {
+      print('Error updating status: $e');
+    }
   }
 
   @override
@@ -186,8 +195,12 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                       }
 
                       final items = snapshot.data!;
-                      final ongoingItems = filterItems(items, 'ongoing');
-                      final completedItems = filterItems(items, 'completed');
+                      final ongoingItems = items
+                          .where((item) => item['status'] == 'ongoing')
+                          .toList();
+                      final completedItems = items
+                          .where((item) => item['status'] == 'completed')
+                          .toList();
 
                       return isOngoingSelected
                           ? _buildItemList(ongoingItems, 'No ongoing data yet')
@@ -236,19 +249,9 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
-        final customerInfo = item['data']['customerInfo'];
-        if (customerInfo == null || customerInfo is! List<dynamic>) {
-          return Container(); // Skip if customerInfo is null or not a list
-        }
-        final data =
-            customerInfo.isNotEmpty ? customerInfo.first : <String, dynamic>{};
-        final customerId = data['customerId'] ?? '';
-        final itemId = data['id'] ?? '';
-        final itemType = data['type'] ?? '';
-
-        if (customerId.isEmpty || itemId.isEmpty || itemType.isEmpty) {
-          return Container(); // Skip if any required fields are empty
-        }
+        final customerId = item['customerId'];
+        final itemId = item['id'];
+        final itemType = item['type'];
 
         return FutureBuilder<Map<String, dynamic>?>(
           future: getCustomerDetails(customerId),
@@ -276,22 +279,28 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                 }
 
                 final itemData = itemSnapshot.data!;
-                final title = itemType == 'pet'
+                final title = itemType == 'pets'
                     ? itemData['petType']
                     : itemData['productName'];
-                final description = itemType == 'pet'
+                final description = itemType == 'pets'
                     ? itemData['about']
                     : itemData['description'];
-                final imageUrl = itemType == 'pet'
-                    ? itemData['imageUrl']
-                    : itemData['imageUrl'];
+                final imageUrl = itemData['imageUrl'] ?? '';
 
                 return isOngoingSelected
                     ? _buildOngoingCard(
-                        itemData, customerData, title, description, imageUrl)
-                    : _buildCompletedCard(
-                        itemData,
+                        item,
                         customerData,
+                        itemData, // Pass itemData to _buildOngoingCard
+                        title,
+                        description,
+                        imageUrl,
+                        customerId,
+                      )
+                    : _buildCompletedCard(
+                        item,
+                        customerData,
+                        itemData, // Pass itemData to _buildCompletedCard
                         title,
                         description,
                         imageUrl,
@@ -305,11 +314,14 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
   }
 
   Widget _buildOngoingCard(
-      Map<String, dynamic> item,
-      Map<String, dynamic> customerData,
-      String title,
-      String description,
-      String imageUrl) {
+    Map<String, dynamic> item,
+    Map<String, dynamic> customerData,
+    Map<String, dynamic> itemData, // Add itemData parameter
+    String title,
+    String description,
+    String imageUrl,
+    String customerId,
+  ) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
@@ -318,7 +330,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (imageUrl != null && imageUrl.isNotEmpty)
+          if (imageUrl.isNotEmpty)
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(8)),
@@ -361,17 +373,19 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                       MaterialPageRoute(
                         builder: (context) => DetailScreen(
                           data: {
-                            'id': item['id'] ?? '',
-                            'collection': item['collection'] ?? '',
-                            'image': item['imageUrl'] ?? '',
+                            'id': item['id'],
+                            'collection': item['type'],
+                            'image': imageUrl,
                             'text': title,
                             'description': description,
-                            'location': item['location'] ?? 'Unknown location',
-                            'published': item['published'] ?? 'Unknown time',
+                            'location':
+                                itemData['location'] ?? 'Unknown location',
+                            'published':
+                                itemData['published'] ?? 'Unknown time',
                             'profileImage': customerData['profileImage'] ?? '',
                             'profileName':
                                 customerData['name'] ?? 'Unknown user',
-                            'userId': item['userId'] ?? '',
+                            'userId': itemData['userId'] ?? '',
                           },
                           navigationSource: 'ProductCartScreen',
                         ),
@@ -380,6 +394,13 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                   },
                   icon: const Icon(Icons.message_outlined),
                   color: Colors.orange,
+                ),
+                IconButton(
+                  onPressed: () async {
+                    await finalizeStatus(item['id'], customerId, 'completed');
+                  },
+                  icon: const Icon(Icons.check_circle),
+                  color: Colors.green,
                 ),
               ],
             ),
@@ -412,6 +433,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
   Widget _buildCompletedCard(
     Map<String, dynamic> item,
     Map<String, dynamic> customerData,
+    Map<String, dynamic> itemData, // Add itemData parameter
     String title,
     String description,
     String imageUrl,
@@ -424,7 +446,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (imageUrl != null && imageUrl.isNotEmpty)
+          if (imageUrl.isNotEmpty)
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(8)),
@@ -467,12 +489,14 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                         builder: (context) => DetailScreen(
                           data: {
                             'id': item['id'],
-                            'collection': item['collection'],
-                            'image': item['imageUrl'] ?? '',
+                            'collection': item['type'],
+                            'image': imageUrl,
                             'text': title,
                             'description': description,
-                            'location': item['location'] ?? 'Unknown location',
-                            'published': item['published'] ?? 'Unknown time',
+                            'location':
+                                itemData['location'] ?? 'Unknown location',
+                            'published':
+                                itemData['published'] ?? 'Unknown time',
                             'profileImage': customerData['profileImage'] ?? '',
                             'profileName':
                                 customerData['name'] ?? 'Unknown user',
@@ -611,9 +635,9 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                                 'text': title,
                                 'description': description,
                                 'location':
-                                    item['location'] ?? 'Unknown location',
+                                    data['location'] ?? 'Unknown location',
                                 'published':
-                                    item['published'] ?? 'Unknown time',
+                                    data['published'] ?? 'Unknown time',
                                 'profileImage': data['profileImage'] ?? '',
                                 'profileName':
                                     data['profileName'] ?? 'Unknown user',

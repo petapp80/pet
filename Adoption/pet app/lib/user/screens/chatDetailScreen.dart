@@ -4,7 +4,7 @@ import 'dart:io'; // For File
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart'; // For formatting timestamps
-import 'package:http/http.dart' as http; // Add this for HTTP requests
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
@@ -309,7 +309,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
-
                       if (!snapshot.hasData ||
                           snapshot.data == null ||
                           !snapshot.data!.exists) {

@@ -58,29 +58,16 @@ class _CartScreenState extends State<CartScreen> {
     final sellerCustomerRef = FirebaseFirestore.instance
         .collection('user')
         .doc(createdById)
-        .collection('customers')
-        .doc(itemId);
+        .collection('customers');
 
     final sellerCustomerSnapshot = await sellerCustomerRef.get();
 
-    if (sellerCustomerSnapshot.exists) {
-      final customerInfo =
-          sellerCustomerSnapshot.data()?['customerInfo'] as List<dynamic>;
-      final updatedCustomerInfo = customerInfo.map((info) {
-        if (info['customerId'] == userId) {
-          return {
-            ...info,
-            'status': newStatus,
-          };
-        }
-        return info;
-      }).toList();
-
-      await sellerCustomerRef.update({
-        'customerInfo': updatedCustomerInfo,
-      });
-
-      print("Updated customer's status in the seller's collection");
+    for (var doc in sellerCustomerSnapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      if (data['customerId'] == userId) {
+        await doc.reference.update({'status': newStatus});
+        print("Updated customer's status in the seller's collection");
+      }
     }
 
     if (mounted) {
@@ -115,9 +102,13 @@ class _CartScreenState extends State<CartScreen> {
         .collection('user')
         .doc(createdById)
         .collection('customers')
-        .doc(itemId);
+        .where('customerId', isEqualTo: userId);
 
-    await sellerCustomerRef.delete();
+    final querySnapshot = await sellerCustomerRef.get();
+    for (var doc in querySnapshot.docs) {
+      await doc.reference.delete();
+      print("Removed customer entry from the seller's collection");
+    }
 
     if (mounted) {
       Future.delayed(Duration.zero, () {
@@ -228,8 +219,8 @@ class _CartScreenState extends State<CartScreen> {
                                     MaterialPageRoute(
                                       builder: (context) => DetailScreen(
                                         data: item,
-                                        navigationSource: widget
-                                            .navigationSource, // Pass the navigation source
+                                        navigationSource:
+                                            widget.navigationSource,
                                       ),
                                     ),
                                   );
@@ -289,7 +280,7 @@ class _CartScreenState extends State<CartScreen> {
                                               item['profileImage'].isNotEmpty
                                           ? NetworkImage(item['profileImage'])
                                           : const AssetImage(
-                                                  'asset/image/dog1.png')
+                                                  'asset/image/default_profile.png')
                                               as ImageProvider,
                                     ),
                                     const SizedBox(width: 8),
@@ -309,10 +300,9 @@ class _CartScreenState extends State<CartScreen> {
                                                 ChatDetailScreen(
                                               name: item['profileName'],
                                               image: item['profileImage'],
-                                              navigationSource: widget
-                                                  .navigationSource, // Pass the navigation source
-                                              userId:
-                                                  item['userId'], // Pass userId
+                                              navigationSource:
+                                                  widget.navigationSource,
+                                              userId: item['userId'],
                                             ),
                                           ),
                                         );

@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/giveUpdate.dart';
 import 'login screen.dart';
 import 'newlyRegistered.dart';
-import 'notificationScreen.dart'; // Import the Notification page
 import 'salesScreen.dart'; // Import other pages as needed
 import 'feedbackScreen.dart';
-import 'userSearch.dart'; // Import other pages as needed
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -35,15 +33,13 @@ class _AdminPageState extends State<AdminPage> {
                   childAspectRatio:
                       1.0, // Adjusted Aspect ratio to prevent overflow
                 ),
-                itemCount: 6, // Total number of boxes
+                itemCount: 4, // Total number of boxes
                 itemBuilder: (context, index) {
                   // List of titles for the boxes
                   final titles = [
                     'Newly Registered',
                     'Sales',
                     'Feedback',
-                    'User Search',
-                    'Notification',
                     'Articles'
                   ];
 
@@ -51,9 +47,7 @@ class _AdminPageState extends State<AdminPage> {
                   final pages = [
                     const NewlyRegistered(), // Newly Registered, no page
                     const SalesScreen(), // Sales page
-                    const Feedbackscreen(),
-                    const UserSearch(), // User Search, no page for now
-                    const NotificationScreen(), // Notification page
+                    const Feedbackscreen(), // Feedback page
                     const GiveUpdate(), // Give Update, no page for now
                   ];
 
