@@ -21,81 +21,187 @@ class _UserEditState extends State<UserEdit> {
 
   bool nameEditMode = false;
   bool positionEditMode = false;
+  bool isApproved = false;
 
   @override
   void initState() {
     super.initState();
     _nameController.text = widget.name;
     _positionController.text = widget.position;
+    _checkApprovalStatus();
   }
 
-  // Function to save changes
-  Future<void> _saveChanges() async {
+  Future<void> _checkApprovalStatus() async {
     try {
-      await FirebaseFirestore.instance
-          .collection('user')
-          .doc(widget.name)
-          .update({
-        'name': _nameController.text,
-        'position': _positionController.text,
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Changes saved successfully!')),
-      );
-    } catch (e) {
-      print('Error saving changes: $e');
-    }
-  }
-
-  // Function to delete the user
-  Future<void> _deleteUser() async {
-    try {
-      // Find the document ID using the user name
       final querySnapshot = await FirebaseFirestore.instance
           .collection('user')
           .where('name', isEqualTo: widget.name)
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
-        // Get the document ID
+        final docData = querySnapshot.docs.first.data();
+        if (docData.containsKey('approved') && docData['approved'] == true) {
+          setState(() {
+            isApproved = true;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error checking approval status: $e');
+    }
+  }
+
+  // Function to save changes to a specific field
+  Future<void> _saveField(String fieldName, String value) async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('user')
+          .where('name', isEqualTo: widget.name)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
         final docId = querySnapshot.docs.first.id;
 
-        // Delete the user document using the document ID
-        await FirebaseFirestore.instance.collection('user').doc(docId).delete();
-        print('User deleted: ${widget.name}');
-
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(docId)
+            .update({fieldName: value});
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User deleted successfully')),
+          const SnackBar(content: Text('Field updated successfully!')),
         );
-
-        // Close the current screen and return true to indicate success
-        Navigator.pop(context, true);
       } else {
-        print('User not found: ${widget.name}');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User not found')),
         );
       }
     } catch (e) {
-      print('Error deleting user: $e');
+      print('Error updating field: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting user: $e')),
+        SnackBar(content: Text('Error updating field: $e')),
       );
+    }
+  }
+
+  // Function to delete the user
+  Future<void> _deleteUser() async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Confirmation'),
+          content: const Text('Are you sure you want to delete this user?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete == true) {
+      try {
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('user')
+            .where('name', isEqualTo: widget.name)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          final docId = querySnapshot.docs.first.id;
+
+          await FirebaseFirestore.instance
+              .collection('user')
+              .doc(docId)
+              .delete();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User deleted successfully')),
+          );
+
+          Navigator.pop(context, true);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User not found')),
+          );
+        }
+      } catch (e) {
+        print('Error deleting user: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting user: $e')),
+        );
+      }
     }
   }
 
   // Function to approve the user
   Future<void> _approveUser() async {
     try {
-      await FirebaseFirestore.instance
+      final querySnapshot = await FirebaseFirestore.instance
           .collection('user')
-          .doc(widget.name)
-          .update({'approved': true});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User approved successfully!')),
-      );
+          .where('name', isEqualTo: widget.name)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final docId = querySnapshot.docs.first.id;
+
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(docId)
+            .update({'approved': true});
+        setState(() {
+          isApproved = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User approved successfully!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not found')),
+        );
+      }
     } catch (e) {
       print('Error approving user: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error approving user: $e')),
+      );
+    }
+  }
+
+  // Function to revoke user approval
+  Future<void> _revokeApproval() async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('user')
+          .where('name', isEqualTo: widget.name)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final docId = querySnapshot.docs.first.id;
+
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(docId)
+            .update({'approved': false});
+        setState(() {
+          isApproved = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User approval revoked successfully!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not found')),
+        );
+      }
+    } catch (e) {
+      print('Error revoking user approval: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error revoking user approval: $e')),
+      );
     }
   }
 
@@ -105,11 +211,6 @@ class _UserEditState extends State<UserEdit> {
       appBar: AppBar(
         title: const Text('User Edit'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _saveChanges,
-            tooltip: 'Save Changes',
-          ),
           IconButton(
             icon: const Icon(Icons.delete),
             onPressed: _deleteUser,
@@ -129,7 +230,6 @@ class _UserEditState extends State<UserEdit> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Name Field
                 _buildLabelTextField(
                   label: 'Name',
                   controller: _nameController,
@@ -137,11 +237,13 @@ class _UserEditState extends State<UserEdit> {
                   onEditPressed: () {
                     setState(() {
                       nameEditMode = !nameEditMode;
+                      if (!nameEditMode) {
+                        _saveField('name', _nameController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Position Field
                 _buildLabelTextField(
                   label: 'Position',
                   controller: _positionController,
@@ -149,18 +251,24 @@ class _UserEditState extends State<UserEdit> {
                   onEditPressed: () {
                     setState(() {
                       positionEditMode = !positionEditMode;
+                      if (!positionEditMode) {
+                        _saveField('position', _positionController.text);
+                      }
                     });
                   },
                 ),
-                const SizedBox(height: 20),
-                // Approve Button
-                Center(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.check),
-                    label: const Text('Approve User'),
-                    onPressed: _approveUser,
+                if (_positionController.text == 'Buyer-Veterinary') ...[
+                  const SizedBox(height: 20),
+                  Center(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.check),
+                      label: isApproved
+                          ? const Text('Revoke Approval')
+                          : const Text('Approve User'),
+                      onPressed: isApproved ? _revokeApproval : _approveUser,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -169,7 +277,6 @@ class _UserEditState extends State<UserEdit> {
     );
   }
 
-  // Method to build label, text field, and edit button
   Widget _buildLabelTextField({
     required String label,
     required TextEditingController controller,

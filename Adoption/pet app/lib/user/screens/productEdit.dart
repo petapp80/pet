@@ -7,6 +7,7 @@ class ProductEdit extends StatefulWidget {
   final String userName;
   final String userEmail;
   final String userId;
+  final String productId;
 
   const ProductEdit({
     super.key,
@@ -15,6 +16,7 @@ class ProductEdit extends StatefulWidget {
     required this.userName,
     required this.userEmail,
     required this.userId,
+    required this.productId,
   });
 
   @override
@@ -33,6 +35,8 @@ class _ProductEditState extends State<ProductEdit> {
   final TextEditingController _productImageUrlController =
       TextEditingController();
   final TextEditingController _userIdController = TextEditingController();
+  final TextEditingController _quantityController = TextEditingController();
+  late Timestamp _publishedTime;
 
   bool nameEditMode = false;
   bool descriptionEditMode = false;
@@ -42,6 +46,7 @@ class _ProductEditState extends State<ProductEdit> {
   bool productImagePublicIdEditMode = false;
   bool productImageUrlEditMode = false;
   bool userIdEditMode = false;
+  bool quantityEditMode = false;
 
   @override
   void initState() {
@@ -49,21 +54,25 @@ class _ProductEditState extends State<ProductEdit> {
     _initializeProductFields(widget.productData);
     _nameController.text = widget.userName;
     _userIdController.text = widget.userId;
+    _fetchProductData(); // Ensure data is fetched on initialization
   }
 
   Future<void> _fetchProductData() async {
     try {
+      print('Fetching Product Data for ID: ${widget.productId}'); // Debug print
       var productDoc = await FirebaseFirestore.instance
           .collection('user')
           .doc(widget.userId)
           .collection('products')
-          .doc(widget.name)
+          .doc(widget.productId)
           .get();
       if (productDoc.exists) {
         var productData = productDoc.data();
         if (productData != null) {
           _initializeProductFields(productData);
         }
+      } else {
+        print('Product Document does not exist.');
       }
     } catch (e) {
       print('Error fetching product data: $e');
@@ -71,6 +80,7 @@ class _ProductEditState extends State<ProductEdit> {
   }
 
   void _initializeProductFields(Map<String, dynamic> productData) {
+    print('Initializing Product Fields: $productData'); // Debug print
     setState(() {
       _descriptionController.text = productData['description'] ?? '';
       _productNameController.text = productData['productName'] ?? '';
@@ -78,73 +88,95 @@ class _ProductEditState extends State<ProductEdit> {
       _productPriceController.text = productData['price'] ?? '';
       _productImagePublicIdController.text = productData['imagePublicId'] ?? '';
       _productImageUrlController.text = productData['imageUrl'] ?? '';
+      _quantityController.text = productData['quantity'] ?? '';
+      _publishedTime = productData['publishedTime'] ?? Timestamp.now();
     });
   }
 
-  // Function to save changes
-  Future<void> _saveChanges() async {
+  Future<void> _saveField(String fieldName, String value) async {
     try {
-      await FirebaseFirestore.instance
+      var productDoc = await FirebaseFirestore.instance
           .collection('user')
           .doc(widget.userId)
           .collection('products')
-          .doc(widget.name)
-          .update({
-        'description': _descriptionController.text,
-        'productName': _productNameController.text,
-        'location': _productLocationController.text,
-        'price': _productPriceController.text,
-        'imagePublicId': _productImagePublicIdController.text,
-        'imageUrl': _productImageUrlController.text,
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Changes saved successfully!')),
-      );
-    } catch (e) {
-      print('Error saving changes: $e');
-    }
-  }
-
-  // Function to delete the product
-  // Function to delete the product
-  Future<void> _deleteProduct() async {
-    try {
-      // Query to find the document where userId matches and productName matches
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection(
-              'products') // Adjust collection name if it's not top-level
-          .where('userId', isEqualTo: widget.userId)
+          .doc(widget.productId)
           .get();
-      // Check if any documents match the query
-      if (querySnapshot.docs.isNotEmpty) {
-        // Get the document ID of the first match
-        final docId = querySnapshot.docs.first.id;
 
-        // Delete the document using its ID
+      if (productDoc.exists) {
         await FirebaseFirestore.instance
+            .collection('user')
+            .doc(widget.userId)
             .collection('products')
-            .doc(docId)
-            .delete();
-
-        print('Product deleted: ${widget.name}');
-
+            .doc(widget.productId)
+            .update({fieldName: value});
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product deleted successfully')),
+          const SnackBar(content: Text('Field updated successfully!')),
         );
-
-        // Close the current screen and return true to indicate success
-        Navigator.pop(context, true);
       } else {
-        print('No matching product found');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No matching product found')),
+          const SnackBar(content: Text('Product document does not exist.')),
         );
       }
     } catch (e) {
-      print('Error deleting product: $e');
+      print('Error updating field: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting product: $e')),
+        SnackBar(content: Text('Error updating field: $e')),
       );
+    }
+  }
+
+  Future<void> _deleteProduct() async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Confirmation'),
+          content: const Text('Are you sure you want to delete this product?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete == true) {
+      try {
+        // Deleting the product document
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(widget.userId)
+            .collection('products')
+            .doc(widget.productId)
+            .delete();
+
+        // Deleting the user document
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(widget.userId)
+            .delete();
+
+        print(
+            'Product and User documents deleted: ${widget.productId}, ${widget.userId}');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Product and User deleted successfully')),
+        );
+
+        Navigator.pop(context, true);
+      } catch (e) {
+        print('Error deleting product: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting product: $e')),
+        );
+      }
     }
   }
 
@@ -154,11 +186,6 @@ class _ProductEditState extends State<ProductEdit> {
       appBar: AppBar(
         title: const Text('Product Edit'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _saveChanges,
-            tooltip: 'Save Changes',
-          ),
           IconButton(
             icon: const Icon(Icons.delete),
             onPressed: _deleteProduct,
@@ -178,7 +205,6 @@ class _ProductEditState extends State<ProductEdit> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Name Field
                 _buildLabelTextField(
                   label: 'Name',
                   controller: _nameController,
@@ -186,11 +212,13 @@ class _ProductEditState extends State<ProductEdit> {
                   onEditPressed: () {
                     setState(() {
                       nameEditMode = !nameEditMode;
+                      if (!nameEditMode) {
+                        _saveField('name', _nameController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Description Field
                 _buildLabelTextField(
                   label: 'Description',
                   controller: _descriptionController,
@@ -198,12 +226,14 @@ class _ProductEditState extends State<ProductEdit> {
                   onEditPressed: () {
                     setState(() {
                       descriptionEditMode = !descriptionEditMode;
+                      if (!descriptionEditMode) {
+                        _saveField('description', _descriptionController.text);
+                      }
                     });
                   },
                   maxLines: 3,
                 ),
                 const SizedBox(height: 10),
-                // Product Name Field
                 _buildLabelTextField(
                   label: 'Product Name',
                   controller: _productNameController,
@@ -211,11 +241,13 @@ class _ProductEditState extends State<ProductEdit> {
                   onEditPressed: () {
                     setState(() {
                       productNameEditMode = !productNameEditMode;
+                      if (!productNameEditMode) {
+                        _saveField('productName', _productNameController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Location Field
                 _buildLabelTextField(
                   label: 'Location',
                   controller: _productLocationController,
@@ -223,11 +255,13 @@ class _ProductEditState extends State<ProductEdit> {
                   onEditPressed: () {
                     setState(() {
                       productLocationEditMode = !productLocationEditMode;
+                      if (!productLocationEditMode) {
+                        _saveField('location', _productLocationController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Price Field
                 _buildLabelTextField(
                   label: 'Price',
                   controller: _productPriceController,
@@ -235,11 +269,13 @@ class _ProductEditState extends State<ProductEdit> {
                   onEditPressed: () {
                     setState(() {
                       productPriceEditMode = !productPriceEditMode;
+                      if (!productPriceEditMode) {
+                        _saveField('price', _productPriceController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Image Public ID Field
                 _buildLabelTextField(
                   label: 'Image Public ID',
                   controller: _productImagePublicIdController,
@@ -248,11 +284,14 @@ class _ProductEditState extends State<ProductEdit> {
                     setState(() {
                       productImagePublicIdEditMode =
                           !productImagePublicIdEditMode;
+                      if (!productImagePublicIdEditMode) {
+                        _saveField('imagePublicId',
+                            _productImagePublicIdController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Image URL Field
                 _buildLabelTextField(
                   label: 'Image URL',
                   controller: _productImageUrlController,
@@ -260,12 +299,28 @@ class _ProductEditState extends State<ProductEdit> {
                   onEditPressed: () {
                     setState(() {
                       productImageUrlEditMode = !productImageUrlEditMode;
+                      if (!productImageUrlEditMode) {
+                        _saveField('imageUrl', _productImageUrlController.text);
+                      }
                     });
                   },
                   maxLines: 3,
                 ),
                 const SizedBox(height: 10),
-                // User ID Field
+                _buildLabelTextField(
+                  label: 'Quantity',
+                  controller: _quantityController,
+                  editMode: quantityEditMode,
+                  onEditPressed: () {
+                    setState(() {
+                      quantityEditMode = !quantityEditMode;
+                      if (!quantityEditMode) {
+                        _saveField('quantity', _quantityController.text);
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
                 _buildLabelTextField(
                   label: 'User ID',
                   controller: _userIdController,
@@ -273,6 +328,9 @@ class _ProductEditState extends State<ProductEdit> {
                   onEditPressed: () {
                     setState(() {
                       userIdEditMode = !userIdEditMode;
+                      if (!userIdEditMode) {
+                        _saveField('userId', _userIdController.text);
+                      }
                     });
                   },
                 ),
@@ -284,7 +342,6 @@ class _ProductEditState extends State<ProductEdit> {
     );
   }
 
-  // Method to build label, text field, and edit button
   Widget _buildLabelTextField({
     required String label,
     required TextEditingController controller,
@@ -295,8 +352,10 @@ class _ProductEditState extends State<ProductEdit> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -306,8 +365,10 @@ class _ProductEditState extends State<ProductEdit> {
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 10,
+              horizontal: 10,
+            ),
           ),
         ),
         const SizedBox(height: 8),

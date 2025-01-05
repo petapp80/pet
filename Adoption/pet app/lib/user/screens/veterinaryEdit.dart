@@ -50,14 +50,24 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
   Future<void> _fetchVeterinaryData() async {
     try {
       var vetDoc = await FirebaseFirestore.instance
-          .collection('eterinary')
-          .doc(widget.name)
+          .collection('user')
+          .doc(widget.userId)
+          .collection('Veterinary')
+          .doc(widget.vetData['vetDocId'])
           .get();
+
+      print(
+          'Fetching veterinary data for userId: ${widget.userId}, vetDocId: ${widget.vetData['vetDocId']}');
       if (vetDoc.exists) {
         var vetData = vetDoc.data();
+        print('Veterinary data fetched: $vetData');
         if (vetData != null) {
           _initializeVeterinaryFields(vetData);
+        } else {
+          print('No data found in veterinary document.');
         }
+      } else {
+        print('Veterinary document does not exist.');
       }
     } catch (e) {
       print('Error fetching veterinary data: $e');
@@ -67,30 +77,33 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
   void _initializeVeterinaryFields(Map<String, dynamic> vetData) {
     setState(() {
       _aboutController.text = vetData['about'] ?? '';
-      _availabilityController.text = vetData['availability'] ?? '';
+      _availabilityController.text = vetData['appointments'] ?? '';
       _experienceController.text = vetData['experience'] ?? '';
       _imagePublicIdController.text = vetData['imagePublicId'] ?? '';
       _imageUrlController.text = vetData['imageUrl'] ?? '';
       _locationController.text = vetData['location'] ?? '';
       _priceController.text = vetData['price'] ?? '';
     });
+    print('Initialized veterinary fields with data: $vetData');
   }
 
-  // Function to save changes
   Future<void> _saveChanges() async {
     try {
       await FirebaseFirestore.instance
-          .collection('veterinary')
-          .doc(widget.name)
+          .collection('user')
+          .doc(widget.userId)
+          .collection('Veterinary')
+          .doc(widget.vetData['vetDocId'])
           .update({
         'about': _aboutController.text,
-        'availability': _availabilityController.text,
+        'appointments': _availabilityController.text,
         'experience': _experienceController.text,
         'imagePublicId': _imagePublicIdController.text,
         'imageUrl': _imageUrlController.text,
         'location': _locationController.text,
         'price': _priceController.text,
       });
+      print('Veterinary data updated with new values.');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Changes saved successfully!')),
       );
@@ -99,26 +112,58 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
     }
   }
 
-  // Function to delete the veterinary
   Future<void> _deleteVeterinary() async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('veterinary')
-          .doc(widget.name)
-          .delete();
-      print('Veterinary deleted: ${widget.name}');
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Confirmation'),
+          content: const Text(
+              'Are you sure you want to delete this veterinary record?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veterinary deleted successfully')),
-      );
+    if (shouldDelete == true) {
+      try {
+        // Delete the veterinary document
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(widget.userId)
+            .collection('Veterinary')
+            .doc(widget.vetData['vetDocId'])
+            .delete();
+        print('Veterinary document deleted: ${widget.vetData['vetDocId']}');
 
-      // Close the current screen and return true to indicate success
-      Navigator.pop(context, true);
-    } catch (e) {
-      print('Error deleting veterinary: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting veterinary: $e')),
-      );
+        // Delete the user document
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(widget.userId)
+            .delete();
+        print('User document deleted: ${widget.userId}');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Veterinary and User deleted successfully')),
+        );
+
+        Navigator.pop(context, true);
+      } catch (e) {
+        print('Error deleting veterinary: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting veterinary: $e')),
+        );
+      }
     }
   }
 
@@ -152,7 +197,6 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Name Field
                 _buildLabelTextField(
                   label: 'Name',
                   controller: _nameController,
@@ -164,7 +208,6 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
                   },
                 ),
                 const SizedBox(height: 10),
-                // About Field
                 _buildLabelTextField(
                   label: 'About',
                   controller: _aboutController,
@@ -176,7 +219,6 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
                   },
                 ),
                 const SizedBox(height: 10),
-                // Availability Field
                 _buildLabelTextField(
                   label: 'Availability',
                   controller: _availabilityController,
@@ -188,7 +230,6 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
                   },
                 ),
                 const SizedBox(height: 10),
-                // Experience Field
                 _buildLabelTextField(
                   label: 'Experience',
                   controller: _experienceController,
@@ -200,7 +241,6 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
                   },
                 ),
                 const SizedBox(height: 10),
-                // Image Public ID Field
                 _buildLabelTextField(
                   label: 'Image Public ID',
                   controller: _imagePublicIdController,
@@ -212,7 +252,6 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
                   },
                 ),
                 const SizedBox(height: 10),
-                // Image URL Field
                 _buildLabelTextField(
                   label: 'Image URL',
                   controller: _imageUrlController,
@@ -225,7 +264,6 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
                   maxLines: 3,
                 ),
                 const SizedBox(height: 10),
-                // Location Field
                 _buildLabelTextField(
                   label: 'Location',
                   controller: _locationController,
@@ -237,7 +275,6 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
                   },
                 ),
                 const SizedBox(height: 10),
-                // Price Field
                 _buildLabelTextField(
                   label: 'Price',
                   controller: _priceController,
@@ -249,7 +286,6 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
                   },
                 ),
                 const SizedBox(height: 10),
-                // User ID Field
                 _buildLabelTextField(
                   label: 'User ID',
                   controller: _userIdController,
@@ -269,7 +305,6 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
     );
   }
 
-  // Method to build label, text field, and edit button
   Widget _buildLabelTextField({
     required String label,
     required TextEditingController controller,

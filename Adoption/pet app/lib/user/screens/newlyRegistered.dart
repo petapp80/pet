@@ -73,9 +73,18 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
             return productsSnapshot.docs.map((productDoc) {
               final product = productDoc.data();
               return {
+                'productDocId': productDoc.id, // Add product document ID
                 'name': userName,
                 'productName': product['productName'] ?? 'No product name',
                 'description': product['description'] ?? 'No description',
+                'location': product['location'] ?? 'No location',
+                'price': product['price'] ?? 'No price',
+                'imagePublicId':
+                    product['imagePublicId'] ?? 'No image public ID',
+                'imageUrl': product['imageUrl'] ?? 'No image URL',
+                'quantity': product['quantity'] ?? 'No quantity',
+                'userId': userId, // Add userId
+                'userEmail': userEmail, // Add userEmail
               };
             }).toList();
           }));
@@ -85,12 +94,28 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
               .cast<Map<String, dynamic>>();
           break;
         case 'Veterinary':
-          final vetSnapshot =
-              await FirebaseFirestore.instance.collection('veterinary').get();
-          data = vetSnapshot.docs
-              .map((doc) => doc.data())
-              .toList()
-              .cast<Map<String, dynamic>>();
+          final userSnapshot =
+              await FirebaseFirestore.instance.collection('user').get();
+          final vetData = await Future.wait(userSnapshot.docs.map((doc) async {
+            final userId = doc.id;
+            final userName = doc.data()['name'];
+            final userEmail = doc.data()['email'];
+            final vetSnapshot =
+                await doc.reference.collection('Veterinary').get();
+            return vetSnapshot.docs.map((vetDoc) {
+              final vet = vetDoc.data();
+              return {
+                'vetDocId': vetDoc.id, // Add veterinary document ID
+                'userName':
+                    userName, // Ensure this is consistent with other sections
+                'userEmail': userEmail, // Add userEmail
+                'userId': userId, // Add userId
+                'vetType': vet['vetType'] ?? 'No vet type',
+                'about': vet['about'] ?? 'No about information',
+              };
+            }).toList();
+          }));
+          data = vetData.expand((x) => x).toList().cast<Map<String, dynamic>>();
           break;
         default:
           data = [];
@@ -107,7 +132,7 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
         } else if (category == 'Products') {
           searchString = item['name']?.toString() ?? '';
         } else if (category == 'Veterinary') {
-          searchString = item['name']?.toString() ?? '';
+          searchString = item['userName']?.toString() ?? '';
         } else {
           searchString = '';
         }
@@ -144,16 +169,17 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
         break;
       case 'Products':
         editScreen = ProductEdit(
-          name: item['name'] ?? 'No name',
+          name: item['productName'] ?? 'No product name',
           productData: item,
-          userName: item['userName'] ?? 'No user name',
+          userName: item['name'] ?? 'No user name',
           userEmail: item['userEmail'] ?? 'No user email',
           userId: item['userId'] ?? 'No userId',
+          productId: item['productDocId'] ?? 'No productId',
         );
         break;
       case 'Veterinary':
         editScreen = VeterinaryEdit(
-          name: item['name'] ?? 'No name',
+          name: item['userName'] ?? 'No name',
           vetData: item,
           userId: item['userId'] ?? 'No userId',
         );
@@ -249,7 +275,8 @@ class _NewlyRegisteredState extends State<NewlyRegistered> {
                           displayText =
                               '${item['name']}, Product: ${item['productName']}, Description: ${item['description']}';
                         } else if (selectedCategory == 'Veterinary') {
-                          displayText = '${item['name']}, ${item['email']}';
+                          displayText =
+                              '${item['userName']}, ${item['userEmail']}';
                         } else {
                           displayText = 'No display text';
                         }

@@ -96,55 +96,89 @@ class _PetEditState extends State<PetEdit> {
     });
   }
 
-  Future<void> _saveChanges() async {
+  Future<void> _saveField(String fieldName, String value) async {
     try {
-      await FirebaseFirestore.instance
+      var petDoc = await FirebaseFirestore.instance
           .collection('user')
           .doc(widget.userId)
           .collection('pets')
           .doc(widget.petId)
-          .update({
-        'about': _aboutController.text,
-        'age': _ageController.text,
-        'breed': _breedController.text,
-        'colour': _colourController.text,
-        'imagePublicId': _imagePublicIdController.text,
-        'imageUrl': _imageUrlController.text,
-        'location': _locationController.text,
-        'petType': _petTypeController.text,
-        'price': _priceController.text,
-        'sex': _sexController.text,
-        'weight': _weightController.text,
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Changes saved successfully!')),
-      );
+          .get();
+
+      if (petDoc.exists) {
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(widget.userId)
+            .collection('pets')
+            .doc(widget.petId)
+            .update({fieldName: value});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Field updated successfully!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pet document does not exist.')),
+        );
+      }
     } catch (e) {
-      print('Error saving changes: $e');
+      print('Error updating field: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating field: $e')),
+      );
     }
   }
 
   Future<void> _deletePet() async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('user')
-          .doc(widget.userId)
-          .collection('pets')
-          .doc(widget.petId)
-          .delete();
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Confirmation'),
+          content: const Text('Are you sure you want to delete this pet?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
 
-      print('Pet deleted: ${widget.name}');
+    if (shouldDelete == true) {
+      try {
+        // Deleting the pet document
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(widget.userId)
+            .collection('pets')
+            .doc(widget.petId)
+            .delete();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pet deleted successfully')),
-      );
+        // Deleting the user document
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(widget.userId)
+            .delete();
 
-      Navigator.pop(context, true);
-    } catch (e) {
-      print('Error deleting pet: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting pet: $e')),
-      );
+        print(
+            'Pet and User documents deleted: ${widget.petId}, ${widget.userId}');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pet and User deleted successfully')),
+        );
+
+        Navigator.pop(context, true);
+      } catch (e) {
+        print('Error deleting pet: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting pet: $e')),
+        );
+      }
     }
   }
 
@@ -154,11 +188,6 @@ class _PetEditState extends State<PetEdit> {
       appBar: AppBar(
         title: const Text('Pet Edit'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _saveChanges,
-            tooltip: 'Save Changes',
-          ),
           IconButton(
             icon: const Icon(Icons.delete),
             onPressed: _deletePet,
@@ -178,7 +207,6 @@ class _PetEditState extends State<PetEdit> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Name Field
                 _buildLabelTextField(
                   label: 'Name',
                   controller: _nameController,
@@ -186,11 +214,13 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       nameEditMode = !nameEditMode;
+                      if (!nameEditMode) {
+                        _saveField('name', _nameController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // About Field
                 _buildLabelTextField(
                   label: 'About',
                   controller: _aboutController,
@@ -198,11 +228,13 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       aboutEditMode = !aboutEditMode;
+                      if (!aboutEditMode) {
+                        _saveField('about', _aboutController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Age Field
                 _buildLabelTextField(
                   label: 'Age',
                   controller: _ageController,
@@ -210,11 +242,13 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       ageEditMode = !ageEditMode;
+                      if (!ageEditMode) {
+                        _saveField('age', _ageController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Breed Field
                 _buildLabelTextField(
                   label: 'Breed',
                   controller: _breedController,
@@ -222,11 +256,13 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       breedEditMode = !breedEditMode;
+                      if (!breedEditMode) {
+                        _saveField('breed', _breedController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Colour Field
                 _buildLabelTextField(
                   label: 'Colour',
                   controller: _colourController,
@@ -234,11 +270,13 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       colourEditMode = !colourEditMode;
+                      if (!colourEditMode) {
+                        _saveField('colour', _colourController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Image Public ID Field
                 _buildLabelTextField(
                   label: 'Image Public ID',
                   controller: _imagePublicIdController,
@@ -246,11 +284,14 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       imagePublicIdEditMode = !imagePublicIdEditMode;
+                      if (!imagePublicIdEditMode) {
+                        _saveField(
+                            'imagePublicId', _imagePublicIdController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Image URL Field
                 _buildLabelTextField(
                   label: 'Image URL',
                   controller: _imageUrlController,
@@ -258,12 +299,14 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       imageUrlEditMode = !imageUrlEditMode;
+                      if (!imageUrlEditMode) {
+                        _saveField('imageUrl', _imageUrlController.text);
+                      }
                     });
                   },
                   maxLines: 3,
                 ),
                 const SizedBox(height: 10),
-                // Location Field
                 _buildLabelTextField(
                   label: 'Location',
                   controller: _locationController,
@@ -271,11 +314,13 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       locationEditMode = !locationEditMode;
+                      if (!locationEditMode) {
+                        _saveField('location', _locationController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Pet Type Field
                 _buildLabelTextField(
                   label: 'Pet Type',
                   controller: _petTypeController,
@@ -283,11 +328,13 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       petTypeEditMode = !petTypeEditMode;
+                      if (!petTypeEditMode) {
+                        _saveField('petType', _petTypeController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Price Field
                 _buildLabelTextField(
                   label: 'Price',
                   controller: _priceController,
@@ -295,11 +342,13 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       priceEditMode = !priceEditMode;
+                      if (!priceEditMode) {
+                        _saveField('price', _priceController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Sex Field
                 _buildLabelTextField(
                   label: 'Sex',
                   controller: _sexController,
@@ -307,11 +356,13 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       sexEditMode = !sexEditMode;
+                      if (!sexEditMode) {
+                        _saveField('sex', _sexController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // Weight Field
                 _buildLabelTextField(
                   label: 'Weight',
                   controller: _weightController,
@@ -319,11 +370,13 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       weightEditMode = !weightEditMode;
+                      if (!weightEditMode) {
+                        _saveField('weight', _weightController.text);
+                      }
                     });
                   },
                 ),
                 const SizedBox(height: 10),
-                // User ID Field
                 _buildLabelTextField(
                   label: 'User ID',
                   controller: _userIdController,
@@ -331,6 +384,9 @@ class _PetEditState extends State<PetEdit> {
                   onEditPressed: () {
                     setState(() {
                       userIdEditMode = !userIdEditMode;
+                      if (!userIdEditMode) {
+                        _saveField('userId', _userIdController.text);
+                      }
                     });
                   },
                 ),
