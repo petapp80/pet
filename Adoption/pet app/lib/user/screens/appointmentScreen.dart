@@ -44,7 +44,8 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
       final customerId = data['customerId'] as String;
       final itemId = data['id'] as String;
       final status = data['status'] as String;
-      final typeOfPet = data['type of pet'] as String;
+      final typeOfPet = data['type of pet'] as String? ??
+          'Unknown'; // Provide a default value
 
       final customerDoc = await FirebaseFirestore.instance
           .collection('user')
@@ -405,7 +406,7 @@ class AppointmentTile extends StatelessWidget {
                     builder: (context) => ChatDetailScreen(
                       name: patientName,
                       image:
-                          'asset/image/default_profile.png', // Provide a default image or fetch from Firestore if available
+                          'assets/image/default_profile.png', // Provide a default image or fetch from Firestore if available
                       navigationSource: 'AppointmentScreen',
                       userId: customerId,
                     ),

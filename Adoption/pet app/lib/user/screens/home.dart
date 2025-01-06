@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/chatDetailScreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart'; // Import intl package
-
+import 'package:intl/intl.dart'; // Import intl package import 'floatingbttn.dart';
 import 'floatingbttn.dart';
 import 'productScreen.dart';
 import 'profile.dart';
@@ -13,7 +12,7 @@ import 'searchScreen.dart';
 import 'addScreen.dart';
 import 'veterinary.dart';
 import 'veterinaryAdd.dart';
-import 'detailScreen.dart'; // Import the DetailScreen
+import 'detailScreen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -117,7 +116,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   Widget _buildSection(String collection, String nameField) {
     return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance.collection(collection).limit(5).get(),
+      future: FirebaseFirestore.instance
+          .collection(collection)
+          .where('approved', isEqualTo: true)
+          .limit(5)
+          .get(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -147,6 +150,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   } else {
                     final userData =
                         userSnapshot.data!.data() as Map<String, dynamic>;
+                    final isUserApproved = userData['approved'] == true;
 
                     final publishedTime =
                         (data['publishedTime'] as Timestamp?)?.toDate();
@@ -206,6 +210,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 'asset/image/default_profile.png'),
                         profileName: userData['name'] ?? 'Unknown user',
                         userId: data['userId'],
+                        isUserApproved: isUserApproved,
                       ),
                     );
                   }
@@ -229,12 +234,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     required ImageProvider<Object> profileImage,
     required String profileName,
     required String userId,
+    required bool isUserApproved,
   }) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
+        side: isUserApproved
+            ? BorderSide(color: Colors.blue, width: 2)
+            : BorderSide.none,
       ),
+      color: isUserApproved ? Colors.lightBlue.shade50 : Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -255,12 +265,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
           Padding(
             padding: const EdgeInsets.all(12.0),
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    text,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (isUserApproved)
+                  const Icon(Icons.verified, color: Colors.blue),
+              ],
             ),
           ),
           const SizedBox(height: 8),

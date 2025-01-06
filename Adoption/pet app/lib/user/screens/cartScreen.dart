@@ -280,8 +280,7 @@ class _CartScreenState extends State<CartScreen> {
                                               item['profileImage'].isNotEmpty
                                           ? NetworkImage(item['profileImage'])
                                           : const AssetImage(
-                                                  'asset/image/default_profile.png')
-                                              as ImageProvider,
+                                              'asset/image/default_profile.png'),
                                     ),
                                     const SizedBox(width: 8),
                                     Text(

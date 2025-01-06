@@ -1,9 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/user/screens/login%20screen.dart';
-import 'package:flutter_application_1/user/screens/selectuser.dart';
+import 'package:flutter_application_1/user/screens/home.dart';
 import 'package:flutter_application_1/user/services/Buyer_auth_service.dart';
 import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'login screen.dart'; // Updated for consistency
 
 class SignUpPage extends StatefulWidget {
@@ -54,13 +57,31 @@ class _SignUpPageState extends State<SignUpPage> {
           password: _passwordController.text,
         );
 
+        // Update the user's position to "Buyer"
+        final User? user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          String userId = user.uid;
+          DocumentReference userDoc =
+              FirebaseFirestore.instance.collection('user').doc(userId);
+
+          await userDoc.set(
+            {'position': 'Buyer'},
+            SetOptions(merge: true),
+          );
+        }
+
+        // Save login state
+        final prefs = await SharedPreferences.getInstance();
+        prefs.setBool('isLoggedIn', true);
+
         setState(() {
           loading = false;
         });
 
+        // Navigate to HomePage
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const SelectUser()),
+          MaterialPageRoute(builder: (context) => const HomePage()),
         );
       } catch (error) {
         setState(() {

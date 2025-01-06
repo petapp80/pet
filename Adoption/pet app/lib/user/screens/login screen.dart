@@ -8,6 +8,7 @@ import 'package:flutter_application_1/user/screens/productScreen.dart';
 import 'package:flutter_application_1/user/screens/veterinary.dart';
 import 'package:flutter_application_1/user/services/Buyer_auth_service.dart';
 import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'adminScreen.dart'; // Import your AdminPage
 import 'reg.dart'; // Import your SignUpPage
 
@@ -69,6 +70,11 @@ class _LoginPageState extends State<LoginPage> {
             setState(() {
               loading = false;
             });
+
+            // Save login state
+            final prefs = await SharedPreferences.getInstance();
+            prefs.setBool('isLoggedIn', true);
+
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (context) => const AdminPage()),
@@ -98,6 +104,10 @@ class _LoginPageState extends State<LoginPage> {
             setState(() {
               loading = false;
             });
+
+            // Save login state
+            final prefs = await SharedPreferences.getInstance();
+            prefs.setBool('isLoggedIn', true);
 
             // Redirect based on user position
             if (position == 'Buyer') {

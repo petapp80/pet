@@ -1,20 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_application_1/user/screens/appointmentScreen.dart';
+import 'package:flutter_application_1/user/screens/home.dart';
 import 'package:flutter_application_1/user/screens/login%20screen.dart';
-import 'package:flutter_application_1/user/screens/profile.dart';
-import 'package:flutter_application_1/user/screens/reg.dart';
-import 'package:flutter_application_1/user/screens/veterinary.dart';
+import 'package:flutter_application_1/user/screens/splashScreen.dart';
+import 'package:flutter_application_1/user/screens/themeProvider.dart'; // Import the ThemeProvider
 import 'firebase_options.dart';
 import 'package:provider/provider.dart'; // Import for ChangeNotifierProvider
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'user/screens/editProfile.dart';
-import 'user/screens/floatingbttn.dart';
-import 'user/screens/productScreen.dart';
-import 'user/screens/home.dart';
-import 'user/screens/splashScreen.dart';
-import 'user/screens/themeProvider.dart'; // Import the ThemeProvider
 
 void main() async {
   // Ensure all bindings are initialized
@@ -25,18 +17,20 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Get saved theme preference
+  // Get saved theme preference and login state
   final prefs = await SharedPreferences.getInstance();
   final isDarkTheme = prefs.getBool('isDarkTheme') ?? false;
+  final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
   // Run the app with the selected theme
-  runApp(MyApp(isDarkTheme: isDarkTheme));
+  runApp(MyApp(isDarkTheme: isDarkTheme, isLoggedIn: isLoggedIn));
 }
 
 class MyApp extends StatelessWidget {
   final bool isDarkTheme;
+  final bool isLoggedIn;
 
-  const MyApp({super.key, required this.isDarkTheme});
+  const MyApp({super.key, required this.isDarkTheme, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +45,7 @@ class MyApp extends StatelessWidget {
             theme: themeProvider.isDarkTheme
                 ? ThemeData.dark()
                 : ThemeData.light(),
-            home: const SignUpPage(), // Replace with your starting page
+            home: isLoggedIn ? const HomePage() : const LoginPage(),
           );
         },
       ),
