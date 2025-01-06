@@ -89,12 +89,17 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
 
   Future<void> _saveChanges() async {
     try {
-      await FirebaseFirestore.instance
+      var vetDocRef = FirebaseFirestore.instance
           .collection('user')
           .doc(widget.userId)
           .collection('Veterinary')
-          .doc(widget.vetData['vetDocId'])
-          .update({
+          .doc(widget.vetData['vetDocId']);
+
+      var vetDocSnapshot = await vetDocRef.get();
+      var approvedValue =
+          vetDocSnapshot.data()?['approved'] ?? false; // Retain approved value
+
+      await vetDocRef.update({
         'about': _aboutController.text,
         'appointments': _availabilityController.text,
         'experience': _experienceController.text,
@@ -102,7 +107,24 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
         'imageUrl': _imageUrlController.text,
         'location': _locationController.text,
         'price': _priceController.text,
+        'approved': approvedValue, // Keep the existing approved value
       });
+
+      var outsideVetDocRef = FirebaseFirestore.instance
+          .collection('Veterinary')
+          .doc(widget.vetData['vetDocId']);
+
+      await outsideVetDocRef.update({
+        'about': _aboutController.text,
+        'appointments': _availabilityController.text,
+        'experience': _experienceController.text,
+        'imagePublicId': _imagePublicIdController.text,
+        'imageUrl': _imageUrlController.text,
+        'location': _locationController.text,
+        'price': _priceController.text,
+        'approved': approvedValue, // Keep the existing approved value
+      });
+
       print('Veterinary data updated with new values.');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Changes saved successfully!')),
@@ -145,16 +167,17 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
             .delete();
         print('Veterinary document deleted: ${widget.vetData['vetDocId']}');
 
-        // Delete the user document
+        // Delete the corresponding document from the outside Veterinary collection
         await FirebaseFirestore.instance
-            .collection('user')
-            .doc(widget.userId)
+            .collection('Veterinary')
+            .doc(widget.vetData['vetDocId'])
             .delete();
-        print('User document deleted: ${widget.userId}');
+        print(
+            'Veterinary document deleted from outside collection: ${widget.vetData['vetDocId']}');
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Veterinary and User deleted successfully')),
+              content: Text('Veterinary record deleted successfully')),
         );
 
         Navigator.pop(context, true);

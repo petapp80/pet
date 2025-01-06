@@ -33,6 +33,7 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
   File? _image;
   String? _existingImageUrl;
   bool _isLoading = false;
+  bool _approved = false;
 
   @override
   void initState() {
@@ -66,6 +67,7 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
         _selectedCurrency = data['price'].split(' ')[0];
         _quantityController.text = data['quantity'].toString();
         _existingImageUrl = data['imageUrl'];
+        _approved = data.containsKey('approved') ? data['approved'] : false;
         _isLoading = false;
       });
     } else {
@@ -196,27 +198,34 @@ class _ProductsAddScreenState extends State<ProductsAddScreen> {
         'imageUrl': imageUrl,
         'imagePublicId': imagePublicId,
         'publishedTime': FieldValue.serverTimestamp(), // Add published time
+        'approved': _approved, // Retain approved field if it exists
       };
 
-      if (widget.docId == null || widget.docId!.isEmpty) {
-        await FirebaseFirestore.instance
-            .collection('products')
-            .add(productData);
-        await FirebaseFirestore.instance
-            .collection('user')
-            .doc(userId)
-            .collection('products')
-            .add(productData);
+      // Firestore document references
+      DocumentReference productDocRef;
+      if (widget.docId == null) {
+        productDocRef = FirebaseFirestore.instance.collection('products').doc();
       } else {
-        await FirebaseFirestore.instance
-            .collection('products')
-            .doc(widget.docId)
-            .update(productData);
+        productDocRef =
+            FirebaseFirestore.instance.collection('products').doc(widget.docId);
+      }
+
+      // Add or update product document in Firestore
+      if (widget.docId == null || widget.docId!.isEmpty) {
+        await productDocRef.set(productData);
         await FirebaseFirestore.instance
             .collection('user')
             .doc(userId)
             .collection('products')
-            .doc(widget.docId)
+            .doc(productDocRef.id)
+            .set(productData);
+      } else {
+        await productDocRef.update(productData);
+        await FirebaseFirestore.instance
+            .collection('user')
+            .doc(userId)
+            .collection('products')
+            .doc(productDocRef.id)
             .update(productData);
       }
 

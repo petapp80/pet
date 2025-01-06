@@ -36,6 +36,7 @@ class _AddScreenState extends State<AddScreen> {
   String _selectedSex = 'Male'; // Default sex selection
   String? _existingImageUrl;
   bool _isLoading = false;
+  bool _approved = false;
 
   @override
   void initState() {
@@ -77,6 +78,7 @@ class _AddScreenState extends State<AddScreen> {
           aboutController.text = data['about'];
           quantityController.text = data['quantity'].toString();
           _existingImageUrl = data['imageUrl'];
+          _approved = data.containsKey('approved') ? data['approved'] : false;
         });
       } else {
         print('No data found for docId: ${widget.docId}'); // Debug print
@@ -217,6 +219,7 @@ class _AddScreenState extends State<AddScreen> {
         'imageUrl': imageUrl,
         'imagePublicId': imagePublicId,
         'publishedTime': FieldValue.serverTimestamp(), // Add published time
+        'approved': _approved, // Retain approved field if it exists
       };
 
       // Add optional fields if provided
@@ -224,24 +227,31 @@ class _AddScreenState extends State<AddScreen> {
         petData['breed'] = breedController.text;
       }
 
+      // Firestore document references
+      DocumentReference petDocRef;
+      if (widget.docId == null) {
+        petDocRef = FirebaseFirestore.instance.collection('pets').doc();
+      } else {
+        petDocRef =
+            FirebaseFirestore.instance.collection('pets').doc(widget.docId);
+      }
+
       // Add or update pet document in Firestore
       if (widget.docId == null) {
-        await FirebaseFirestore.instance.collection('pets').add(petData);
+        await petDocRef.set(petData);
         await FirebaseFirestore.instance
             .collection('user')
             .doc(userId)
             .collection('pets')
-            .add(petData);
+            .doc(petDocRef.id)
+            .set(petData);
       } else {
-        await FirebaseFirestore.instance
-            .collection('pets')
-            .doc(widget.docId)
-            .update(petData);
+        await petDocRef.update(petData);
         await FirebaseFirestore.instance
             .collection('user')
             .doc(userId)
             .collection('pets')
-            .doc(widget.docId)
+            .doc(petDocRef.id)
             .update(petData);
       }
 
@@ -251,7 +261,6 @@ class _AddScreenState extends State<AddScreen> {
       });
 
       print("Pet ${widget.docId == null ? 'added' : 'updated'}: $petData");
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Pet Published Successfully!')),
       );

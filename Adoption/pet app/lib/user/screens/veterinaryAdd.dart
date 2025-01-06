@@ -42,6 +42,7 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
 
   // Loading state
   bool _isLoading = true;
+  bool _approved = false;
 
   @override
   void initState() {
@@ -71,6 +72,9 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
         _selectedCurrency = profileData['price'].toString().split(' ')[0];
         _appointmentsController.text = profileData['appointments'] ?? '';
         _existingImageUrl = profileData['imageUrl'];
+        _approved = profileData.containsKey('approved')
+            ? profileData['approved']
+            : false;
       }
     }
     setState(() {
@@ -254,17 +258,22 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
         'imageUrl': imageUrl ?? '',
         'imagePublicId': imagePublicId ?? '',
         'publishedTime': FieldValue.serverTimestamp(), // Add published time
+        'approved': _approved, // Retain approved field if it exists
       };
 
+      DocumentReference veterinaryDocRef;
       if (_profileId == null) {
         // Add veterinary profile data to Firestore
-        await FirebaseFirestore.instance.collection('Veterinary').add(vetData);
+        veterinaryDocRef = await FirebaseFirestore.instance
+            .collection('Veterinary')
+            .add(vetData);
+        _profileId =
+            veterinaryDocRef.id; // Set profileId to the new document ID
       } else {
         // Update existing veterinary profile data in Firestore
-        await FirebaseFirestore.instance
-            .collection('Veterinary')
-            .doc(_profileId)
-            .update(vetData);
+        veterinaryDocRef =
+            FirebaseFirestore.instance.collection('Veterinary').doc(_profileId);
+        await veterinaryDocRef.update(vetData);
       }
 
       // Also add/update veterinary profile data to user's sub-collection in 'user' collection
@@ -272,12 +281,13 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
           .collection('user')
           .doc(userId)
           .collection('Veterinary')
-          .doc(_profileId ?? userId)
+          .doc(_profileId)
           .set(vetData);
 
-      // Update the user's position in Firestore
+      // Update the user's position and approved status in Firestore
       await FirebaseFirestore.instance.collection('user').doc(userId).update({
         'position': 'Buyer-Veterinary',
+        'approved': _approved,
       });
 
       print(

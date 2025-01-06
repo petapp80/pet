@@ -257,18 +257,16 @@ class _UserEditState extends State<UserEdit> {
                     });
                   },
                 ),
-                if (_positionController.text == 'Buyer-Veterinary') ...[
-                  const SizedBox(height: 20),
-                  Center(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.check),
-                      label: isApproved
-                          ? const Text('Revoke Approval')
-                          : const Text('Approve User'),
-                      onPressed: isApproved ? _revokeApproval : _approveUser,
-                    ),
+                const SizedBox(height: 20),
+                Center(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.check),
+                    label: isApproved
+                        ? const Text('Revoke Approval')
+                        : const Text('Approve User'),
+                    onPressed: isApproved ? _revokeApproval : _approveUser,
                   ),
-                ],
+                ),
               ],
             ),
           ),
