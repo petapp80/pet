@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Firebase Authentication
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_application_1/user/screens/login%20screen.dart'; // For CupertinoPageRoute
+import 'package:PetApp/user/screens/login%20screen.dart'; // For CupertinoPageRoute
 
 class ForgetScreen extends StatefulWidget {
   const ForgetScreen({super.key});

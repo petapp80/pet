@@ -2,9 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/user/screens/login%20screen.dart';
-import 'package:flutter_application_1/user/screens/home.dart';
-import 'package:flutter_application_1/user/services/Buyer_auth_service.dart';
+import 'package:PetApp/user/screens/login%20screen.dart';
+import 'package:PetApp/user/screens/home.dart';
+import 'package:PetApp/user/services/Buyer_auth_service.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login screen.dart'; // Updated for consistency

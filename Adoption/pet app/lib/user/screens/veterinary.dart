@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/user/screens/appointmentScreen.dart';
-import 'package:flutter_application_1/user/screens/profile.dart';
-import 'package:flutter_application_1/user/screens/messageScreen.dart';
+import 'package:PetApp/user/screens/appointmentScreen.dart';
+import 'package:PetApp/user/screens/profile.dart';
+import 'package:PetApp/user/screens/messageScreen.dart';
 import 'veterinaryAdd.dart';
 
 class VeterinaryScreen extends StatefulWidget {

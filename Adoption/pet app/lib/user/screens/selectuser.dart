@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Firebase Authentication
-import 'package:flutter_application_1/user/screens/productScreen.dart';
-import 'package:flutter_application_1/user/screens/veterinary.dart';
+import 'package:PetApp/user/screens/productScreen.dart';
+import 'package:PetApp/user/screens/veterinary.dart';
 import 'home.dart'; // Import HomePage
-import 'package:flutter_application_1/user/screens/productsAddScreen.dart'; // Import ProductsScreen
+import 'package:PetApp/user/screens/productsAddScreen.dart'; // Import ProductsScreen
 
 class SelectUser extends StatefulWidget {
   const SelectUser({super.key});

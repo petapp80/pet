@@ -2,11 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/user/screens/forgetScreen.dart';
-import 'package:flutter_application_1/user/screens/home.dart';
-import 'package:flutter_application_1/user/screens/productScreen.dart';
-import 'package:flutter_application_1/user/screens/veterinary.dart';
-import 'package:flutter_application_1/user/services/Buyer_auth_service.dart';
+import 'package:PetApp/user/screens/forgetScreen.dart';
+import 'package:PetApp/user/screens/home.dart';
+import 'package:PetApp/user/screens/productScreen.dart';
+import 'package:PetApp/user/screens/veterinary.dart';
+import 'package:PetApp/user/services/Buyer_auth_service.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'adminScreen.dart'; // Import your AdminPage

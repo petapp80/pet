@@ -72,35 +72,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: StreamBuilder<DocumentSnapshot>(
         stream: _userStream,
         builder: (context, snapshot) {
+          Widget profileContent;
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingScreen();
+            profileContent = _buildLoadingScreen();
           } else if (snapshot.hasError) {
-            return _buildErrorScreen();
+            profileContent = _buildErrorScreen();
           } else if (snapshot.hasData && snapshot.data != null) {
             final profileData = snapshot.data!.data() as Map<String, dynamic>?;
-
-            if (profileData == null) {
-              return Center(
-                child: Text(
-                  'Profile data not found',
-                  style: TextStyle(
-                    color: _isDarkTheme ? Colors.white : Colors.black,
-                  ),
-                ),
-              );
-            }
-
-            return _buildProfileContent(profileData);
+            profileContent = profileData != null
+                ? _buildProfileDetails(profileData)
+                : _buildNoProfileData();
           } else {
-            return Center(
-              child: Text(
-                'No data available',
-                style: TextStyle(
-                  color: _isDarkTheme ? Colors.white : Colors.black,
-                ),
-              ),
-            );
+            profileContent = _buildNoProfileData();
           }
+
+          return Stack(
+            children: [
+              profileContent,
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: _buildProfileOptions(),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -136,45 +130,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileContent(Map<String, dynamic> profileData) {
+  Widget _buildNoProfileData() {
+    return Center(
+      child: Text(
+        'Profile data not found. Please try again later.',
+        style: TextStyle(
+          color: _isDarkTheme ? Colors.white : Colors.black,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileDetails(Map<String, dynamic> profileData) {
     return SingleChildScrollView(
-      child: Column(
-        children: [
-          const SizedBox(height: 40),
-          CircleAvatar(
-            radius: 60,
-            backgroundImage: _profileImagePath != null
-                ? FileImage(
-                    File(_profileImagePath!)) // Show local image before upload
-                : (profileData['profileImage'] != null &&
-                            profileData['profileImage'].isNotEmpty
-                        ? NetworkImage(
-                            profileData['profileImage']) // Show uploaded image
-                        : const AssetImage(
-                            'asset/image/default_profile.png') // Placeholder image
-                    ) as ImageProvider,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            profileData['name'] ?? 'Unknown',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: _isDarkTheme ? Colors.white : Colors.black,
+      child: Center(
+        // Center the content horizontally
+        child: Column(
+          children: [
+            const SizedBox(height: 40),
+            CircleAvatar(
+              radius: 60,
+              backgroundImage: _profileImagePath != null
+                  ? FileImage(File(
+                      _profileImagePath!)) // Show local image before upload
+                  : (profileData['profileImage'] != null &&
+                              profileData['profileImage'].isNotEmpty
+                          ? NetworkImage(profileData[
+                              'profileImage']) // Show uploaded image
+                          : const AssetImage(
+                              'asset/image/default_profile.png') // Placeholder image
+                      ) as ImageProvider,
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            profileData['email'] ?? 'Email not available',
-            style: TextStyle(
-              fontSize: 16,
-              color: _isDarkTheme ? Colors.white70 : Colors.grey,
+            const SizedBox(height: 20),
+            Text(
+              profileData['name'] ?? 'Unknown',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: _isDarkTheme ? Colors.white : Colors.black,
+              ),
             ),
-          ),
-          const SizedBox(height: 30),
-          const SizedBox(height: 30),
-          _buildProfileOptions(),
-        ],
+            const SizedBox(height: 5),
+            Text(
+              profileData['email'] ?? 'Email not available',
+              style: TextStyle(
+                fontSize: 16,
+                color: _isDarkTheme ? Colors.white70 : Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 30),
+          ],
+        ),
       ),
     );
   }
@@ -195,6 +201,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           ProfileOption(
             icon: Icons.edit,

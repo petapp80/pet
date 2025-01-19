@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Import for SystemNavigator
-import 'package:flutter_application_1/user/screens/addScreen.dart';
-import 'package:flutter_application_1/user/screens/productCart.dart';
-import 'package:flutter_application_1/user/screens/productsAddScreen.dart'; // Corrected import statement
-import 'package:flutter_application_1/user/screens/profile.dart';
-import 'package:flutter_application_1/user/screens/messageScreen.dart';
+import 'package:PetApp/user/screens/addScreen.dart';
+import 'package:PetApp/user/screens/productCart.dart';
+import 'package:PetApp/user/screens/productsAddScreen.dart'; // Corrected import statement
+import 'package:PetApp/user/screens/profile.dart';
+import 'package:PetApp/user/screens/messageScreen.dart';
 
 import 'home.dart';
 

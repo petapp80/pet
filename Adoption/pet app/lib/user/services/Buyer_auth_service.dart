@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/user/screens/home.dart';
+import 'package:PetApp/user/screens/home.dart';
 
 class BuyerAuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;

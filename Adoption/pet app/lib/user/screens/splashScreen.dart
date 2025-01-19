@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/user/screens/reg.dart';
+import 'package:PetApp/user/screens/reg.dart';
+import 'package:PetApp/user/screens/home.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-
-import 'home.dart'; // Update this import to match your actual file location.
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -13,38 +13,61 @@ class _SplashScreenState extends State<SplashScreen> {
   bool _showText = false; // To control when to show the text
   bool _isGifFinished = false; // To track if the GIF has finished
   double _opacity = 0.0; // To control the opacity of the text
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    _startAnimation();
+  }
 
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startAnimation() {
     // Simulate the GIF finish after 3 seconds (adjust this duration as needed)
-    Future.delayed(Duration(seconds: 1), () {
-      setState(() {
-        _showText = true;
-      });
-
-      // Animate the text opacity
-      Future.delayed(Duration(milliseconds: 100), () {
+    _timer = Timer(Duration(seconds: 1), () {
+      if (mounted) {
         setState(() {
-          _opacity = 1.0; // Fade in the text
-        });
-      });
-
-      // Simulate GIF finish and navigate to the next screen
-      Future.delayed(Duration(seconds: 3), () {
-        setState(() {
-          _isGifFinished = true;
+          _showText = true;
         });
 
-        // Navigate to the next screen after a delay
-        Future.delayed(Duration(seconds: 3), () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const SignUpPage()),
-          );
+        // Animate the text opacity
+        _timer = Timer(Duration(milliseconds: 100), () {
+          if (mounted) {
+            setState(() {
+              _opacity = 1.0; // Fade in the text
+            });
+          }
         });
-      });
+
+        // Simulate GIF finish and navigate to the next screen
+        _timer = Timer(Duration(seconds: 3), () async {
+          if (mounted) {
+            setState(() {
+              _isGifFinished = true;
+            });
+
+            // Navigate to the next screen after a delay
+            _timer = Timer(Duration(seconds: 3), () async {
+              final prefs = await SharedPreferences.getInstance();
+              final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+              if (mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        isLoggedIn ? const HomePage() : const SignUpPage(),
+                  ),
+                );
+              }
+            });
+          }
+        });
+      }
     });
   }
 

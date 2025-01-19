@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/user/screens/addScreen.dart';
-import 'package:flutter_application_1/user/screens/productsAddScreen.dart';
+import 'package:PetApp/user/screens/addScreen.dart';
+import 'package:PetApp/user/screens/productsAddScreen.dart';
 import 'veterinaryAdd.dart'; // Import the VeterinaryAddScreen
 
 class AddItemScreen extends StatefulWidget {

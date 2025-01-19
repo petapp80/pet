@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/user/screens/giveUpdate.dart';
+import 'package:PetApp/user/screens/giveUpdate.dart';
 import 'login screen.dart';
 import 'newlyRegistered.dart';
 import 'salesScreen.dart'; // Import other pages as needed

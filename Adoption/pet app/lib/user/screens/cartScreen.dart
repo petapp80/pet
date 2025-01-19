@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_application_1/user/screens/chatDetailScreen.dart';
-import 'package:flutter_application_1/user/screens/detailScreen.dart';
+import 'package:PetApp/user/screens/chatDetailScreen.dart';
+import 'package:PetApp/user/screens/detailScreen.dart';
 
 class CartScreen extends StatefulWidget {
   final String navigationSource;
@@ -204,6 +204,22 @@ class _CartScreenState extends State<CartScreen> {
                             cartItems[index].data() as Map<String, dynamic>;
                         print("Cart Item: $item");
 
+                        // Determine the correct image provider
+                        ImageProvider<Object> profileImageProvider;
+                        if (item['profileImage'] != null &&
+                            item['profileImage'].isNotEmpty) {
+                          if (item['profileImage'].startsWith('http')) {
+                            profileImageProvider =
+                                NetworkImage(item['profileImage']);
+                          } else {
+                            profileImageProvider =
+                                AssetImage(item['profileImage']);
+                          }
+                        } else {
+                          profileImageProvider = const AssetImage(
+                              'asset/image/default_profile.png');
+                        }
+
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 8),
                           shape: RoundedRectangleBorder(
@@ -275,12 +291,7 @@ class _CartScreenState extends State<CartScreen> {
                                   children: [
                                     CircleAvatar(
                                       radius: 16,
-                                      backgroundImage: item['profileImage'] !=
-                                                  null &&
-                                              item['profileImage'].isNotEmpty
-                                          ? NetworkImage(item['profileImage'])
-                                          : const AssetImage(
-                                              'asset/image/default_profile.png'),
+                                      backgroundImage: profileImageProvider,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(

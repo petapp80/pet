@@ -1,4 +1,4 @@
-# flutter_application_1
+# PetApp
 
 A new Flutter project.
 
