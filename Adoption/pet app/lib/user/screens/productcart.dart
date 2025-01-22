@@ -44,23 +44,41 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
     });
   }
 
-  Stream<List<Map<String, dynamic>>> getAllItems() {
-    return FirebaseFirestore.instance
+  Stream<List<Map<String, dynamic>>> getAllItems() async* {
+    // Fetch pets
+    final petsSnapshot = await FirebaseFirestore.instance
         .collection('user')
         .doc(userId)
-        .collection('customers')
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return {
-          'id': data['id'],
-          'customerId': data['customerId'],
-          'status': data['status'],
-          'type': data['type'],
-        };
-      }).toList();
-    });
+        .collection('pets')
+        .get();
+
+    final pets = petsSnapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return {
+        'id': doc.id,
+        'collection': 'pets',
+        'data': data,
+      };
+    }).toList();
+
+    // Fetch products
+    final productsSnapshot = await FirebaseFirestore.instance
+        .collection('user')
+        .doc(userId)
+        .collection('products')
+        .get();
+
+    final products = productsSnapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return {
+        'id': doc.id,
+        'collection': 'products',
+        'data': data,
+      };
+    }).toList();
+
+    // Combine results
+    yield pets + products;
   }
 
   Future<Map<String, dynamic>?> getCustomerDetails(String customerId) async {
@@ -265,7 +283,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
               return const Center(child: Text('Customer data not available'));
             }
 
-            final customerData = customerSnapshot.data!;
+                       final customerData = customerSnapshot.data!;
 
             return FutureBuilder<Map<String, dynamic>?>(
               future: getItemDetails(itemId, itemType),
@@ -549,11 +567,12 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
         final collection = item['collection'];
         final data = item['data'];
 
+        // Access relevant fields based on the collection type
         final title =
             collection == 'pets' ? data['petType'] : data['productName'];
         final description =
             collection == 'pets' ? data['about'] : data['description'];
-        final imageUrl = data['imageUrl'];
+        final imageUrl = data['imageUrl'] ?? '';
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 8),
@@ -561,9 +580,9 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (imageUrl != null && imageUrl.isNotEmpty)
+              if (imageUrl.isNotEmpty)
                 ClipRRect(
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(8)),
@@ -581,7 +600,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
               Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Text(
-                  title,
+                  title ?? 'No title available',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -591,7 +610,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
                 child: Text(
-                  description,
+                  description ?? 'No description available',
                   style: const TextStyle(fontSize: 14, color: Colors.grey),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -631,16 +650,13 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                               data: {
                                 'id': item['id'],
                                 'collection': item['collection'],
-                                'image': item['imageUrl'] ?? '',
-                                'text': title,
-                                'description': description,
-                                'location':
-                                    data['location'] ?? 'Unknown location',
-                                'published':
-                                    data['published'] ?? 'Unknown time',
+                                'image': imageUrl,
+                                'text': title ?? 'No title available',
+                                'description': description ?? 'No description available',
+                                'location': data['location'] ?? 'Unknown location',
+                                'published': data['published'] ?? 'Unknown time',
                                 'profileImage': data['profileImage'] ?? '',
-                                'profileName':
-                                    data['profileName'] ?? 'Unknown user',
+                                'profileName': data['profileName'] ?? 'Unknown user',
                                 'userId': data['userId'],
                                 'age': data['age'],
                                 'breed': data['breed'],
