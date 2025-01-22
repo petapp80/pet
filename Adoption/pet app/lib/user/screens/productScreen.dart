@@ -5,7 +5,6 @@ import 'package:PetApp/user/screens/productCart.dart';
 import 'package:PetApp/user/screens/productsAddScreen.dart'; // Corrected import statement
 import 'package:PetApp/user/screens/profile.dart';
 import 'package:PetApp/user/screens/messageScreen.dart';
-
 import 'home.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -103,7 +102,7 @@ class _ProductsScreenState extends State<ProductsScreen>
             : _selectedIndex == 0
                 ? Messagescreen(
                     navigationSource:
-                        fromScreen) // Messages Screen with argument
+                        'productsScreen') // Messages Screen with the navigation source set explicitly
                 : _selectedIndex == 2
                     ? const ProductCartScreen() // Cart Screen
                     : const ProfileScreen(), // Profile Screen

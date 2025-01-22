@@ -227,32 +227,37 @@ class _ApproveScreenState extends State<ApproveScreen> {
         final userDocRef =
             FirebaseFirestore.instance.collection('user').doc(userId);
 
-        // Update in user's 'pets' subcollection and 'pets' collection
-        await FirebaseFirestore.instance
-            .collection('pets')
-            .doc(id)
-            .update({'approved': true});
-        await userDocRef.collection('pets').doc(id).update({'approved': true});
-
-        // Update in user's 'products' subcollection and 'products' collection
-        await FirebaseFirestore.instance
-            .collection('products')
-            .doc(id)
-            .update({'approved': true});
-        await userDocRef
-            .collection('products')
-            .doc(id)
-            .update({'approved': true});
-
-        // Update in user's 'Veterinary' subcollection and 'Veterinary' collection
-        await FirebaseFirestore.instance
-            .collection('Veterinary')
-            .doc(id)
-            .update({'approved': true});
-        await userDocRef
-            .collection('Veterinary')
-            .doc(id)
-            .update({'approved': true});
+        if (selectedCategory == 'Pets') {
+          // Update in user's 'pets' subcollection and 'pets' collection
+          await FirebaseFirestore.instance
+              .collection('pets')
+              .doc(id)
+              .update({'approved': true});
+          await userDocRef
+              .collection('pets')
+              .doc(id)
+              .update({'approved': true});
+        } else if (selectedCategory == 'Products') {
+          // Update in user's 'products' subcollection and 'products' collection
+          await FirebaseFirestore.instance
+              .collection('products')
+              .doc(id)
+              .update({'approved': true});
+          await userDocRef
+              .collection('products')
+              .doc(id)
+              .update({'approved': true});
+        } else if (selectedCategory == 'Veterinary') {
+          // Update in user's 'Veterinary' subcollection and 'Veterinary' collection
+          await FirebaseFirestore.instance
+              .collection('Veterinary')
+              .doc(id)
+              .update({'approved': true});
+          await userDocRef
+              .collection('Veterinary')
+              .doc(id)
+              .update({'approved': true});
+        }
       }
 
       // Remove the approved document from displayed results

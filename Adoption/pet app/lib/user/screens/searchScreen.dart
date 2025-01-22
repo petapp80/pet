@@ -235,7 +235,7 @@ class _SearchscreenState extends State<Searchscreen> {
                                 'location':
                                     item['location'] ?? 'Unknown location',
                                 'published': publishedDate,
-                                'profileImage': profileImageProvider,
+                                'profileImage': profileData['profileImage'] ?? 'asset/image/default_profile.png',
                                 'profileName': profileData['profileName'] ??
                                     'Unknown user',
                                 'userId': item['userId'],
@@ -280,7 +280,7 @@ class _SearchscreenState extends State<Searchscreen> {
     );
   }
 
-  Widget _buildLoadingTile(Map<String, dynamic> item, String collection,
+    Widget _buildLoadingTile(Map<String, dynamic> item, String collection,
       String nameField, String id) {
     return _buildTile(
       id: id,
@@ -293,8 +293,7 @@ class _SearchscreenState extends State<Searchscreen> {
       profileImage: const AssetImage('asset/image/default_profile.png'),
       profileName: 'Unknown user',
       userId: item['userId'] ?? 'Unknown',
-      isUserApproved:
-          false, // Since this is a loading tile, assume not approved
+      isUserApproved: false, // Since this is a loading tile, assume not approved
     );
   }
 
@@ -606,3 +605,4 @@ class ArticleDetailScreen extends StatelessWidget {
     );
   }
 }
+

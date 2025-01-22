@@ -24,7 +24,8 @@ class _VeterinaryScreenState extends State<VeterinaryScreen> {
     final String fromScreen = widget.navigationSource ??
         'VeterinaryScreen'; // Use the passed value or default
     _screens.addAll([
-      Messagescreen(navigationSource: 'VeterinaryScreen'),
+      Messagescreen(
+          navigationSource: 'veterinaryScreen'), // Pass the source explicitly
       const AppointmentScreen(),
       VeterinaryAddScreen(
           fromScreen: fromScreen), // Pass the fromScreen argument

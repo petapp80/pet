@@ -35,10 +35,18 @@ class _MessagescreenState extends State<Messagescreen> {
     }
 
     // Determine the collection name based on navigation source or user's position
-    String collectionName;
+    String? collectionName;
     if (widget.navigationSource == 'HomePage') {
       collectionName = 'ChatAsBuyer';
-    } else {
+    } else if (widget.navigationSource == 'productsScreen') {
+      collectionName = 'ChatAsSeller';
+      print("Accessed from productsScreen");
+    } else if (widget.navigationSource == 'veterinaryScreen') {
+      collectionName = 'ChatAsVeterinary';
+      print("Accessed from veterinaryScreen");
+    }
+
+    if (collectionName == null) {
       final userDoc =
           await FirebaseFirestore.instance.collection('user').doc(userId).get();
       final positionField = userDoc.data()?['position'] ?? 'Buyer';
@@ -50,7 +58,7 @@ class _MessagescreenState extends State<Messagescreen> {
     final querySnapshot = await FirebaseFirestore.instance
         .collection('user')
         .doc(userId)
-        .collection(collectionName)
+        .collection(collectionName!)
         .get();
 
     setState(() {

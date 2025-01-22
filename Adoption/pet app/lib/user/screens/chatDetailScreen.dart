@@ -12,14 +12,14 @@ class ChatDetailScreen extends StatefulWidget {
   final String name;
   final String image;
   final String navigationSource;
-  final String userId; // Add this line to accept userId
+  final String userId;
 
   const ChatDetailScreen({
     super.key,
     required this.name,
     required this.image,
     required this.navigationSource,
-    required this.userId, // Add this line
+    required this.userId,
   });
 
   @override
@@ -27,7 +27,6 @@ class ChatDetailScreen extends StatefulWidget {
 }
 
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
-  // To store the selected file path
   String? _filePath;
   late String _profileImageUrl;
   String? _collectionName;
@@ -38,24 +37,27 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _profileImageUrl =
-        widget.image; // Use the image passed from the previous screen
+    _profileImageUrl = widget.image;
     _initializeCollectionName();
     _loadProfileImage();
   }
 
-  // Function to initialize collection name
   Future<void> _initializeCollectionName() async {
     String positionField =
         await _getPositionField(FirebaseAuth.instance.currentUser?.uid);
     setState(() {
-      _collectionName = widget.navigationSource == 'HomePage'
-          ? 'ChatAsBuyer'
-          : _getCollectionName(positionField);
+      if (widget.navigationSource == 'HomePage') {
+        _collectionName = 'ChatAsBuyer';
+      } else if (widget.navigationSource == 'productsScreen') {
+        _collectionName = 'ChatAsSeller';
+      } else if (widget.navigationSource == 'veterinaryScreen') {
+        _collectionName = 'ChatAsVeterinary';
+      } else {
+        _collectionName = _getCollectionName(positionField);
+      }
     });
   }
 
-  // Function to get the position field of a user
   Future<String> _getPositionField(String? userId) async {
     if (userId == null) return 'Buyer';
     final userDoc =
@@ -63,7 +65,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return userDoc.exists ? userDoc['position'] : 'Buyer';
   }
 
-  // Function to get the collection name based on position field
   String _getCollectionName(String positionField) {
     switch (positionField) {
       case 'Buyer-Veterinary':
@@ -75,13 +76,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  // Function to load profile image from Firestore
   Future<void> _loadProfileImage() async {
     final userDoc = await FirebaseFirestore.instance
         .collection('user')
         .doc(widget.userId)
         .get();
-
     if (userDoc.exists &&
         userDoc.data()!.containsKey('profileImage') &&
         userDoc['profileImage'] != null &&
@@ -96,7 +95,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  // Function to send a message
   Future<void> _sendMessage(String message, {String? imageUrl}) async {
     setState(() {
       _isSending = true;
@@ -114,19 +112,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       'imageUrl': imageUrl ?? ''
     };
 
-    // Determine collection names for sender and receiver
-    String senderCollectionName;
-    if (widget.navigationSource == 'HomePage') {
-      senderCollectionName = 'ChatAsBuyer';
+    String senderCollectionName = _collectionName!;
+    final receiverPositionField = await _getPositionField(widget.userId);
+    String receiverCollectionName;
+
+    // Adjust the receiver's collection name based on their position
+    if (receiverPositionField == 'Buyer-Veterinary') {
+      receiverCollectionName = 'ChatAsVeterinary';
     } else {
-      final senderPositionField = await _getPositionField(currentUser.uid);
-      senderCollectionName = _getCollectionName(senderPositionField);
+      receiverCollectionName = _getCollectionName(receiverPositionField);
     }
 
-    final receiverPositionField = await _getPositionField(widget.userId);
-    final receiverCollectionName = _getCollectionName(receiverPositionField);
-
-    // Save message to both sender and receiver collections
     await _saveMessageToCollection(
         currentUser.uid, widget.userId, senderCollectionName, messageData);
     await _saveMessageToCollection(
@@ -170,22 +166,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  // Function to handle attachment action
   Future<void> _pickFile(BuildContext context) async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['png', 'jpg', 'heic'], // Allow only specific formats
+      allowedExtensions: ['png', 'jpg', 'heic'],
     );
 
     if (result != null) {
-      // Get the file path
       String? filePath = result.files.single.path;
 
       setState(() {
         _filePath = filePath;
       });
 
-      // Show snack bar
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Selected file: ${filePath?.split('/').last}'),
@@ -193,7 +186,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ),
       );
     } else {
-      // User canceled the picker
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('File selection canceled.'),
@@ -203,7 +195,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  // Function to upload image to Cloudinary using http package
   Future<String?> _uploadImageToCloudinary(String filePath) async {
     try {
       const cloudName = 'db3cpgdwm';
@@ -245,10 +236,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  // Function to clear the selected image
   void _clearSelectedImage() {
     setState(() {
-      _filePath = null; // Clear the selected file path
+      _filePath = null;
     });
   }
 
@@ -258,16 +248,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      resizeToAvoidBottomInset:
-          true, // Adjust screen when keyboard is shown or Snackbar appears
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        backgroundColor: isDark
-            ? Colors.black
-            : Colors.blue, // Change AppBar color based on theme
+        backgroundColor: isDark ? Colors.black : Colors.blue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            Navigator.pop(context); // Go back to the previous screen
+            Navigator.pop(context);
           },
         ),
         title: Row(
