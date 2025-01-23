@@ -235,7 +235,8 @@ class _SearchscreenState extends State<Searchscreen> {
                                 'location':
                                     item['location'] ?? 'Unknown location',
                                 'published': publishedDate,
-                                'profileImage': profileData['profileImage'] ?? 'asset/image/default_profile.png',
+                                'profileImage': profileData['profileImage'] ??
+                                    'asset/image/default_profile.png',
                                 'profileName': profileData['profileName'] ??
                                     'Unknown user',
                                 'userId': item['userId'],
@@ -280,7 +281,7 @@ class _SearchscreenState extends State<Searchscreen> {
     );
   }
 
-    Widget _buildLoadingTile(Map<String, dynamic> item, String collection,
+  Widget _buildLoadingTile(Map<String, dynamic> item, String collection,
       String nameField, String id) {
     return _buildTile(
       id: id,
@@ -293,7 +294,8 @@ class _SearchscreenState extends State<Searchscreen> {
       profileImage: const AssetImage('asset/image/default_profile.png'),
       profileName: 'Unknown user',
       userId: item['userId'] ?? 'Unknown',
-      isUserApproved: false, // Since this is a loading tile, assume not approved
+      isUserApproved:
+          false, // Since this is a loading tile, assume not approved
     );
   }
 
@@ -405,6 +407,28 @@ class _SearchscreenState extends State<Searchscreen> {
                   },
                   icon: const Icon(Icons.shopping_cart_outlined),
                 ),
+                IconButton(
+                  onPressed: () {
+                    reportItem({
+                      'id': id,
+                      'collection': collection,
+                      'image': image,
+                      'text': text,
+                      'description': description,
+                      'location': location,
+                      'published': published,
+                      'profileName': profileName,
+                      'userId': userId,
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('$text reported'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.flag),
+                ),
               ],
             ),
           ),
@@ -462,6 +486,30 @@ class _SearchscreenState extends State<Searchscreen> {
         .collection('CartList')
         .doc(item['id'])
         .set(cartItem);
+  }
+
+  void reportItem(Map<String, String> item) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final reportItem = {
+      'id': item['id'],
+      'collection': item['collection'],
+      'image': item['image'],
+      'text': item['text'],
+      'description': item['description'],
+      'location': item['location'],
+      'published': item['published'],
+      'profileName': item['profileName'],
+      'userId': item['userId'],
+      'reportedBy': userId,
+      'reportedAt': FieldValue.serverTimestamp(),
+    };
+
+    await FirebaseFirestore.instance
+        .collection('Reports')
+        .doc(item['id'])
+        .set(reportItem);
   }
 
   Widget _buildArticleTile(String id, Map<String, dynamic> article) {
@@ -605,4 +653,3 @@ class ArticleDetailScreen extends StatelessWidget {
     );
   }
 }
-

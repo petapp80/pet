@@ -5,6 +5,7 @@ import 'newlyRegistered.dart';
 import 'salesScreen.dart'; // Import other pages as needed
 import 'feedbackScreen.dart';
 import 'approveScreen.dart'; // Import the ApproveScreen
+import 'reportScreen.dart'; // Import the ReportScreen
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -34,7 +35,7 @@ class _AdminPageState extends State<AdminPage> {
                   childAspectRatio:
                       1.0, // Adjusted Aspect ratio to prevent overflow
                 ),
-                itemCount: 5, // Total number of boxes updated to 5
+                itemCount: 6, // Total number of boxes updated to 6
                 itemBuilder: (context, index) {
                   // List of titles for the boxes
                   final titles = [
@@ -42,7 +43,8 @@ class _AdminPageState extends State<AdminPage> {
                     'Sales',
                     'Feedback',
                     'Articles',
-                    'Approve' // Added Approve tile
+                    'Approve', // Added Approve tile
+                    'Reports' // Added Reports tile
                   ];
 
                   // List of corresponding pages to navigate to
@@ -52,6 +54,7 @@ class _AdminPageState extends State<AdminPage> {
                     const Feedbackscreen(), // Feedback page
                     const GiveUpdate(), // Give Update page
                     const ApproveScreen(), // Approve page
+                    const ReportScreen(), // Report page
                   ];
 
                   return Card(

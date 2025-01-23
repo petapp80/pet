@@ -303,19 +303,43 @@ class _CartScreenState extends State<CartScreen> {
                                     const Spacer(),
                                     IconButton(
                                       onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                ChatDetailScreen(
-                                              name: item['profileName'],
-                                              image: item['profileImage'],
-                                              navigationSource:
-                                                  widget.navigationSource,
-                                              userId: item['userId'],
+                                        print(
+                                            "Navigating to ChatDetailScreen with data: ${item}");
+                                        // Ensure all required fields are present
+                                        final profileName =
+                                            item['profileName'] ??
+                                                'Unknown user';
+                                        final profileImage = item[
+                                                'profileImage'] ??
+                                            'asset/image/default_profile.png';
+                                        final userId = item['userId'] ?? '';
+                                        if (profileName.isNotEmpty &&
+                                            profileImage.isNotEmpty &&
+                                            userId.isNotEmpty) {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  ChatDetailScreen(
+                                                name: profileName,
+                                                image: profileImage,
+                                                navigationSource:
+                                                    widget.navigationSource,
+                                                userId: userId,
+                                              ),
                                             ),
-                                          ),
-                                        );
+                                          );
+                                        } else {
+                                          print(
+                                              "Error: Missing required data for ChatDetailScreen.");
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'Unable to navigate to chat. Missing required data.'),
+                                            ),
+                                          );
+                                        }
                                       },
                                       icon: const Icon(Icons.message_outlined),
                                       color:

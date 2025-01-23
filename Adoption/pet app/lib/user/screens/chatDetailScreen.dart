@@ -120,7 +120,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (receiverPositionField == 'Buyer-Veterinary') {
       receiverCollectionName = 'ChatAsVeterinary';
     } else {
-      receiverCollectionName = _getCollectionName(receiverPositionField);
+      receiverCollectionName =
+          'ChatAsSeller'; // Ensure receiver collection name is correct
     }
 
     await _saveMessageToCollection(

@@ -331,6 +331,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   },
                   icon: const Icon(Icons.shopping_cart_outlined),
                 ),
+                IconButton(
+                  onPressed: () {
+                    reportItem({
+                      'id': id,
+                      'collection': collection,
+                      'image': image,
+                      'text': text,
+                      'description': description,
+                      'location': location,
+                      'published': published,
+                      'profileName': profileName,
+                      'userId': userId,
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('$text reported'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.flag),
+                ),
               ],
             ),
           ),
@@ -388,6 +410,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         .collection('CartList')
         .doc(item['id'])
         .set(cartItem);
+  }
+
+  void reportItem(Map<String, String> item) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final reportItem = {
+      'id': item['id'],
+      'collection': item['collection'],
+      'image': item['image'],
+      'text': item['text'],
+      'description': item['description'],
+      'location': item['location'],
+      'published': item['published'],
+      'profileName': item['profileName'],
+      'userId': item['userId'],
+      'reportedBy': userId,
+      'reportedAt': FieldValue.serverTimestamp(),
+    };
+
+    await FirebaseFirestore.instance
+        .collection('Reports')
+        .doc(item['id'])
+        .set(reportItem);
   }
 
   Future<void> _handleRefresh() async {

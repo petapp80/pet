@@ -11,10 +11,9 @@ import 'reviewScreen.dart';
 import 'settings.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final String? navigationSource; // Make the parameter optional
+  final String? navigationSource;
 
-  const ProfileScreen(
-      {super.key, this.navigationSource}); // Update the constructor
+  const ProfileScreen({super.key, this.navigationSource});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -50,15 +49,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _initializeUserStream() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      _userStream =
-          FirebaseFirestore.instance.collection('user').doc(uid).snapshots();
+      setState(() {
+        _userStream =
+            FirebaseFirestore.instance.collection('user').doc(uid).snapshots();
+      });
     }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _initializeUserStream();
   }
 
   @override
@@ -81,9 +76,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final profileData = snapshot.data!.data() as Map<String, dynamic>?;
             profileContent = profileData != null
                 ? _buildProfileDetails(profileData)
-                : _buildNoProfileData();
+                : _handleMissingProfileData();
           } else {
-            profileContent = _buildNoProfileData();
+            profileContent = _handleMissingProfileData();
           }
 
           return Stack(
@@ -98,6 +93,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       ),
     );
+  }
+
+  Widget _handleMissingProfileData() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await FirebaseAuth.instance.signOut();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+    });
+    return _buildNoProfileData();
   }
 
   Widget _buildLoadingScreen() {
@@ -142,28 +149,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileDetails(Map<String, dynamic> profileData) {
+    final userName = profileData['name'];
+    final userEmail = profileData['email'];
+
+    if (userName == null ||
+        userEmail == null ||
+        userName.isEmpty ||
+        userEmail.isEmpty) {
+      return _handleMissingProfileData();
+    }
+
     return SingleChildScrollView(
       child: Center(
-        // Center the content horizontally
         child: Column(
           children: [
             const SizedBox(height: 40),
             CircleAvatar(
               radius: 60,
               backgroundImage: _profileImagePath != null
-                  ? FileImage(File(
-                      _profileImagePath!)) // Show local image before upload
+                  ? FileImage(File(_profileImagePath!))
                   : (profileData['profileImage'] != null &&
                               profileData['profileImage'].isNotEmpty
-                          ? NetworkImage(profileData[
-                              'profileImage']) // Show uploaded image
-                          : const AssetImage(
-                              'asset/image/default_profile.png') // Placeholder image
-                      ) as ImageProvider,
+                          ? NetworkImage(profileData['profileImage'])
+                          : const AssetImage('asset/image/default_profile.png'))
+                      as ImageProvider,
             ),
             const SizedBox(height: 20),
             Text(
-              profileData['name'] ?? 'Unknown',
+              userName,
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -172,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 5),
             Text(
-              profileData['email'] ?? 'Email not available',
+              userEmail,
               style: TextStyle(
                 fontSize: 16,
                 color: _isDarkTheme ? Colors.white70 : Colors.grey,
@@ -210,9 +223,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const EditProfile(),
-                ),
+                MaterialPageRoute(builder: (context) => const EditProfile()),
               );
             },
           ),
@@ -224,9 +235,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ForgetScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const ForgetScreen()),
               );
             },
           ),
@@ -238,9 +247,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const SettingScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const SettingScreen()),
               );
             },
           ),
@@ -252,9 +259,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ReviewsScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const ReviewsScreen()),
               );
             },
           ),
