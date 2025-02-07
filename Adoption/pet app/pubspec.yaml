@@ -40,6 +40,8 @@ dependencies:
   intl: ^0.17.0
   cron: 0.6.1
   webview_flutter: ^4.10.0
+  speech_to_text: ^7.0.0
+  permission_handler: ^11.3.1
 
 
 

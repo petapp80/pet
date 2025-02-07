@@ -304,7 +304,7 @@ class _CartScreenState extends State<CartScreen> {
                                     IconButton(
                                       onPressed: () {
                                         print(
-                                            "Navigating to ChatDetailScreen with data: ${item}");
+                                            "Navigating to ChatDetailScreen with data: $item");
                                         // Ensure all required fields are present
                                         final profileName =
                                             item['profileName'] ??
@@ -345,7 +345,8 @@ class _CartScreenState extends State<CartScreen> {
                                       color:
                                           Theme.of(context).colorScheme.primary,
                                     ),
-                                    if (_selectedFilter == 'Ongoing')
+                                    if (_selectedFilter == 'Ongoing' &&
+                                        item['paymentMethod'] == null)
                                       IconButton(
                                         onPressed: () {
                                           _updateItemStatus(item['id'],

@@ -407,7 +407,7 @@ class AppointmentTile extends StatelessWidget {
                       name: patientName,
                       image:
                           'assets/image/default_profile.png', // Provide a default image or fetch from Firestore if available
-                      navigationSource: 'AppointmentScreen',
+                      navigationSource: 'VeterinaryScreen',
                       userId: customerId,
                     ),
                   ),

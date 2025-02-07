@@ -84,6 +84,139 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  void _checkAndHandleCOD(
+      BuildContext context, Map<String, dynamic> data, String field) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final ownerDocRef = FirebaseFirestore.instance
+        .collection('user')
+        .doc(data['userId'])
+        .collection('OwnerCollection')
+        .doc(data['id']);
+    final ownerDoc = await ownerDocRef.get();
+    final ownerDocData = ownerDoc.data();
+    final docRef = FirebaseFirestore.instance
+        .collection(data['collection'])
+        .doc(data['id']);
+    final doc = await docRef.get();
+    final docData = doc.data();
+    final String fieldToUpdate =
+        data['collection'] == 'Veterinary' ? 'appointments' : 'quantity';
+    final int currentFieldCount =
+        int.tryParse(docData?[fieldToUpdate]?.toString() ?? '0') ?? 0;
+    final int ownerFieldCount =
+        int.tryParse(ownerDocData?[fieldToUpdate]?.toString() ?? '0') ?? 0;
+
+    if (currentFieldCount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                '${field == "quantity" ? "Quantity" : "Appointment"} not available')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    if (currentFieldCount > 0) {
+      await docRef.update({
+        fieldToUpdate: currentFieldCount - 1,
+      });
+      print('Document Updated in Firestore');
+
+if (ownerFieldCount > 0) {
+        await ownerDocRef.update({
+          fieldToUpdate: ownerFieldCount - 1,
+        });
+        print('Owner Document Updated in Firestore');
+      }
+
+      final userDocRef = FirebaseFirestore.instance
+          .collection('user')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .collection('CartList')
+          .doc(data['id']);
+      await userDocRef.set({
+        'status': 'ongoing',
+        'id': data['id'],
+        'text': data['text'],
+        'description': data['description'],
+        'image': data['image'],
+        'profileImage': data['profileImage'],
+        'profileName': data['profileName'],
+        'userId': data['userId'],
+        'published': data['published'],
+        'location': data['location'],
+        'paymentMethod': 'COD', // Add COD field
+      });
+      print('CartList Updated for User');
+
+      final customerData = {
+        'customerId': FirebaseAuth.instance.currentUser?.uid,
+        'status': 'ongoing',
+        'id': data['id'],
+        'type': data['collection'],
+        'paymentMethod': 'COD', // Add COD field
+        if (data['collection'] == 'Veterinary') 'type of pet': _petType,
+      };
+
+      final sellerDocRef = FirebaseFirestore.instance
+          .collection('user')
+          .doc(data['userId'])
+          .collection('customers')
+          .doc(); // Create a new document for each customer
+
+      await sellerDocRef.set(customerData);
+
+      print('Customer Info Created in Firestore');
+
+      // Create a document in the Payments collection
+      final paymentsDocRef =
+          FirebaseFirestore.instance.collection('Payments').doc();
+      await paymentsDocRef.set({
+        'id': data['id'],
+        'type': data['collection'],
+        'amount': docData?['price'],
+        'time': FieldValue.serverTimestamp(),
+        'paymentMethod': 'COD', // Add COD field
+      });
+
+      // Update the quantity in the subcollection of the user
+      final userSubcollectionRef = FirebaseFirestore.instance
+          .collection('user')
+          .doc(data['userId'])
+          .collection(data['collection'])
+          .doc(data['id']);
+      final userSubcollectionDoc = await userSubcollectionRef.get();
+      final userSubcollectionData = userSubcollectionDoc.data();
+      final int userSubcollectionFieldCount = int.tryParse(
+              userSubcollectionData?[fieldToUpdate]?.toString() ?? '0') ??
+          0;
+
+      if (userSubcollectionFieldCount > 0) {
+        await userSubcollectionRef.update({
+          fieldToUpdate: userSubcollectionFieldCount - 1,
+        });
+        print('User Subcollection Document Updated in Firestore');
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('COD Purchase successful')),
+      );
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   void _onRazorpayPaymentSuccess(PaymentSuccessResponse response) async {
     print('Payment Success Callback Triggered');
     setState(() {
@@ -116,7 +249,7 @@ class _DetailScreenState extends State<DetailScreen> {
       });
       print('Document Updated in Firestore');
 
-      if (ownerFieldCount > 0) {
+if (ownerFieldCount > 0) {
         await ownerDocRef.update({
           field: ownerFieldCount - 1,
         });
@@ -139,6 +272,7 @@ class _DetailScreenState extends State<DetailScreen> {
         'userId': widget.data['userId'],
         'published': widget.data['published'],
         'location': widget.data['location'],
+        'paymentMethod': 'Razorpay', // Default field for payment method
       });
       print('CartList Updated for User');
 
@@ -147,6 +281,7 @@ class _DetailScreenState extends State<DetailScreen> {
         'status': 'ongoing',
         'id': widget.data['id'],
         'type': widget.data['collection'],
+        'paymentMethod': 'Razorpay', // Default field for payment method
         if (widget.data['collection'] == 'Veterinary') 'type of pet': _petType,
       };
 
@@ -160,6 +295,24 @@ class _DetailScreenState extends State<DetailScreen> {
 
       print('Customer Info Created in Firestore');
 
+      // Update the quantity in the subcollection of the seller
+      final sellerOwnerDocRef = FirebaseFirestore.instance
+          .collection('user')
+          .doc(ownerId)
+          .collection('OwnerCollection')
+          .doc(widget.data['id']);
+      final sellerOwnerDoc = await sellerOwnerDocRef.get();
+      final sellerOwnerDocData = sellerOwnerDoc.data();
+      final int sellerOwnerFieldCount =
+          int.tryParse(sellerOwnerDocData?[field]?.toString() ?? '0') ?? 0;
+
+      if (sellerOwnerFieldCount > 0) {
+        await sellerOwnerDocRef.update({
+          field: sellerOwnerFieldCount - 1,
+        });
+        print('Seller Owner Document Updated in Firestore');
+      }
+
       // Create a document in the Payments collection
       final paymentsDocRef =
           FirebaseFirestore.instance.collection('Payments').doc();
@@ -168,7 +321,26 @@ class _DetailScreenState extends State<DetailScreen> {
         'type': widget.data['collection'],
         'amount': docData?['price'],
         'time': FieldValue.serverTimestamp(),
+        'paymentMethod': 'Razorpay', // Default field for payment method
       });
+
+      // Update the quantity in the subcollection of the user
+      final userSubcollectionRef = FirebaseFirestore.instance
+          .collection('user')
+          .doc(widget.data['userId'])
+          .collection(widget.data['collection'])
+          .doc(widget.data['id']);
+      final userSubcollectionDoc = await userSubcollectionRef.get();
+      final userSubcollectionData = userSubcollectionDoc.data();
+      final int userSubcollectionFieldCount =
+          int.tryParse(userSubcollectionData?[field]?.toString() ?? '0') ?? 0;
+
+      if (userSubcollectionFieldCount > 0) {
+        await userSubcollectionRef.update({
+          field: userSubcollectionFieldCount - 1,
+        });
+        print('User Subcollection Document Updated in Firestore');
+      }
 
       setState(() {
         _isLoading = false;
@@ -190,7 +362,7 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  void _onRazorpayExternalWallet(ExternalWalletResponse response) {
+void _onRazorpayExternalWallet(ExternalWalletResponse response) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
           content: Text('External wallet selected: ${response.walletName}')),
@@ -296,7 +468,8 @@ class _DetailScreenState extends State<DetailScreen> {
                       _buildDetailRow('Quantity', widget.data['quantity']),
                     ],
                     if (isVeterinaryCollection) ...[
-                      _buildDetailRow('Experience', widget.data['experience']),
+
+_buildDetailRow('Experience', widget.data['experience']),
                       _buildDetailRow('Price', widget.data['price']),
                       _buildDetailRow(
                           'Availability', widget.data['availability']),
@@ -346,49 +519,81 @@ class _DetailScreenState extends State<DetailScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        IconButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ChatDetailScreen(
-                                  name: widget.data['profileName'],
-                                  image: widget.data['profileImage'] != null &&
-                                          widget.data['profileImage'].isNotEmpty
-                                      ? widget.data['profileImage']
-                                      : 'asset/image/default_profile.png',
-                                  navigationSource: 'DetailScreen',
-                                  userId: widget.data['userId'],
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.message_outlined),
-                          color: Theme.of(context).colorScheme.primary,
+                        Column(
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ChatDetailScreen(
+                                      name: widget.data['profileName'],
+                                      image: widget.data['profileImage'] !=
+                                                  null &&
+                                              widget.data['profileImage']
+                                                  .isNotEmpty
+                                          ? widget.data['profileImage']
+                                          : 'asset/image/default_profile.png',
+                                      navigationSource: 'DetailScreen',
+                                      userId: widget.data['userId'],
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.message_outlined),
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const Text('Chat'),
+                          ],
                         ),
                         if (isVeterinaryCollection)
-                          IconButton(
-                            onPressed: () {
-                              _promptPetType(context, (petType) {
-                                setState(() {
-                                  _petType = petType;
-                                });
-                                _checkAndInitiatePayment(
-                                    context, widget.data, 'appointments');
-                              });
-                            },
-                            icon: const Icon(Icons.event_note_outlined),
-                            color: Theme.of(context).colorScheme.secondary,
+                          Column(
+                            children: [
+                              IconButton(
+                                onPressed: () {
+                                  _promptPetType(context, (petType) {
+
+setState(() {
+                                      _petType = petType;
+                                    });
+                                    _checkAndInitiatePayment(
+                                        context, widget.data, 'appointments');
+                                  });
+                                },
+                                icon: const Icon(Icons.event_note_outlined),
+                                color: Theme.of(context).colorScheme.secondary,
+                              ),
+                              const Text('Book Appointment'),
+                            ],
                           )
                         else
-                          IconButton(
-                            onPressed: () {
-                              _checkAndInitiatePayment(
-                                  context, widget.data, 'quantity');
-                            },
-                            icon: const Icon(Icons.add_shopping_cart_outlined),
-                            color: Theme.of(context).colorScheme.tertiary,
+                          Column(
+                            children: [
+                              IconButton(
+                                onPressed: () {
+                                  _checkAndInitiatePayment(
+                                      context, widget.data, 'quantity');
+                                },
+                                icon: const Icon(
+                                    Icons.add_shopping_cart_outlined),
+                                color: Theme.of(context).colorScheme.tertiary,
+                              ),
+                              const Text('Add to Cart'),
+                            ],
                           ),
+                        Column(
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                _checkAndHandleCOD(
+                                    context, widget.data, 'quantity');
+                              },
+                              icon: const Icon(Icons.attach_money_outlined),
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const Text('Cash on Delivery'),
+                          ],
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -422,8 +627,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
   Widget _buildDetailRow(String fieldName, dynamic fieldValue) {
     if (fieldValue == null || fieldValue.toString().isEmpty) {
-      return const SizedBox
-          .shrink(); // Do not display anything if the field value is null or empty
+      return const SizedBox.shrink();
     }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -457,7 +661,7 @@ class _DetailScreenState extends State<DetailScreen> {
         .collection('CartList')
         .doc(item['id']);
 
-    final cartItemSnapshot = await cartItemRef.get();
+final cartItemSnapshot = await cartItemRef.get();
 
     if (cartItemSnapshot.exists) {
       ScaffoldMessenger.of(context).showSnackBar(

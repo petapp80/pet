@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io'; // For File
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart'; // For formatting timestamps
+import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:speech_to_text/speech_to_text.dart'
+    as stt; // Import speech_to_text
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/services.dart' show rootBundle; // Add this import
 
 class ChatDetailScreen extends StatefulWidget {
   final String name;
@@ -34,46 +38,38 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isSending = false;
 
+  // Variables for speech_to_text
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
+  String _lastWords = '';
+
   @override
   void initState() {
     super.initState();
+    _requestMicrophonePermission();
     _profileImageUrl = widget.image;
     _initializeCollectionName();
     _loadProfileImage();
+    _initializeSpeech(); // Initialize speech setup
+  }
+
+  Future<void> _requestMicrophonePermission() async {
+    var status = await Permission.microphone.status;
+    if (!status.isGranted) {
+      await Permission.microphone.request();
+    }
   }
 
   Future<void> _initializeCollectionName() async {
-    String positionField =
-        await _getPositionField(FirebaseAuth.instance.currentUser?.uid);
     setState(() {
-      if (widget.navigationSource == 'HomePage') {
-        _collectionName = 'ChatAsBuyer';
-      } else if (widget.navigationSource == 'productsScreen') {
+      if (widget.navigationSource == 'productsScreen') {
         _collectionName = 'ChatAsSeller';
-      } else if (widget.navigationSource == 'veterinaryScreen') {
+      } else if (widget.navigationSource == 'VeterinaryScreen') {
         _collectionName = 'ChatAsVeterinary';
       } else {
-        _collectionName = _getCollectionName(positionField);
+        _collectionName = 'ChatAsBuyer'; // Default case
       }
     });
-  }
-
-  Future<String> _getPositionField(String? userId) async {
-    if (userId == null) return 'Buyer';
-    final userDoc =
-        await FirebaseFirestore.instance.collection('user').doc(userId).get();
-    return userDoc.exists ? userDoc['position'] : 'Buyer';
-  }
-
-  String _getCollectionName(String positionField) {
-    switch (positionField) {
-      case 'Buyer-Veterinary':
-        return 'ChatAsVeterinary';
-      case 'Buyer-Seller':
-        return 'ChatAsSeller';
-      default:
-        return 'ChatAsBuyer';
-    }
   }
 
   Future<void> _loadProfileImage() async {
@@ -95,6 +91,49 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
+  Future<void> _initializeSpeech() async {
+    _speech = stt.SpeechToText();
+    bool available = await _speech.initialize(
+      onStatus: (val) => print('onStatus: $val'),
+      onError: (val) => print('onError: $val'),
+    );
+    if (!mounted) return;
+
+    setState(() => _isListening = available);
+  }
+
+  void _startListening() async {
+    print('Attempting to start listening...');
+    if (!_isListening) {
+      bool available = await _speech.initialize(
+        onStatus: (val) => print('onStatus: $val'),
+        onError: (val) => print('onError: $val'),
+      );
+      if (available) {
+        setState(() => _isListening = true);
+        print('Started listening');
+        await _speech.listen(
+          onResult: (val) => setState(() {
+            _lastWords = val.recognizedWords;
+            _messageController.text = _lastWords;
+            print('Recognized words: $_lastWords');
+          }),
+        );
+      } else {
+        print('Speech recognition not available');
+      }
+    }
+  }
+
+  void _stopListening() async {
+    print('Attempting to stop listening...');
+    if (_isListening) {
+      setState(() => _isListening = false);
+      await _speech.stop();
+      print('Stopped listening');
+    }
+  }
+
   Future<void> _sendMessage(String message, {String? imageUrl}) async {
     setState(() {
       _isSending = true;
@@ -112,16 +151,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       'imageUrl': imageUrl ?? ''
     };
 
-    String senderCollectionName = _collectionName!;
-    final receiverPositionField = await _getPositionField(widget.userId);
-    String receiverCollectionName;
+    String senderCollectionName;
+    String receiverCollectionName = 'ChatAsBuyer';
 
-    // Adjust the receiver's collection name based on their position
-    if (receiverPositionField == 'Buyer-Veterinary') {
-      receiverCollectionName = 'ChatAsVeterinary';
+    if (widget.navigationSource == 'productsScreen') {
+      senderCollectionName = 'ChatAsSeller';
+    } else if (widget.navigationSource == 'VeterinaryScreen') {
+      senderCollectionName = 'ChatAsVeterinary';
     } else {
-      receiverCollectionName =
-          'ChatAsSeller'; // Ensure receiver collection name is correct
+      senderCollectionName = 'ChatAsBuyer';
+      receiverCollectionName = await _getReceiverCollectionName(widget.userId);
     }
 
     await _saveMessageToCollection(
@@ -131,15 +170,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     _messageController.clear();
     _clearSelectedImage();
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-
     setState(() {
       _isSending = false;
     });
+  }
+
+  Future<String> _getReceiverCollectionName(String userId) async {
+    final userDoc =
+        await FirebaseFirestore.instance.collection('user').doc(userId).get();
+    if (userDoc.exists && userDoc.data()!.containsKey('position')) {
+      final position = userDoc['position'];
+      if (position == 'Buyer-Seller') {
+        return 'ChatAsSeller';
+      } else if (position == 'Buyer-Veterinary') {
+        return 'ChatAsVeterinary';
+      }
+    }
+    return 'ChatAsBuyer'; // Default case if no position is found
   }
 
   Future<void> _saveMessageToCollection(
@@ -342,7 +389,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           final formattedTime = DateFormat('hh:mm a').format(
                               DateTime.fromMillisecondsSinceEpoch(
                                   int.parse(message['timestamp'])));
-
                           messageWidgets.add(
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -412,7 +458,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       });
 
                       return ListView(
-                        controller: _scrollController,
                         children: messageWidgets,
                       );
                     },
@@ -450,6 +495,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                 ? Colors.grey[800]
                                 : Colors.grey[200], // Input background
                           ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _isListening
+                            ? _stopListening
+                            : _startListening, // Toggle listening
+                        icon: Icon(
+                          _isListening ? Icons.mic_off : Icons.mic,
+                          color: Colors.red,
                         ),
                       ),
                       IconButton(

@@ -28,14 +28,12 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _startAnimation() {
-    // Simulate the GIF finish after 3 seconds (adjust this duration as needed)
     _timer = Timer(Duration(seconds: 1), () {
       if (mounted) {
         setState(() {
           _showText = true;
         });
 
-        // Animate the text opacity
         _timer = Timer(Duration(milliseconds: 100), () {
           if (mounted) {
             setState(() {
@@ -44,27 +42,17 @@ class _SplashScreenState extends State<SplashScreen> {
           }
         });
 
-        // Simulate GIF finish and navigate to the next screen
         _timer = Timer(Duration(seconds: 3), () async {
+          final prefs = await SharedPreferences.getInstance();
+          final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
           if (mounted) {
-            setState(() {
-              _isGifFinished = true;
-            });
-
-            // Navigate to the next screen after a delay
-            _timer = Timer(Duration(seconds: 3), () async {
-              final prefs = await SharedPreferences.getInstance();
-              final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-              if (mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        isLoggedIn ? const HomePage() : const SignUpPage(),
-                  ),
-                );
-              }
-            });
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    isLoggedIn ? const HomePage() : const SignUpPage(),
+              ),
+            );
           }
         });
       }
