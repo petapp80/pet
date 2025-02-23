@@ -107,7 +107,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildSection('products', 'description'),
+              _buildSection('products', 'productName'), // Changed here
               const SizedBox(height: 16),
               const Text(
                 'Veterinary',

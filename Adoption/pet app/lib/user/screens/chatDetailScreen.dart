@@ -486,14 +486,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           ),
                         ),
                       ),
-                      IconButton(
-                        onPressed:
-                            _isListening ? _stopListening : _startListening,
-                        icon: Icon(
-                          _isListening ? Icons.mic_off : Icons.mic,
-                          color: Colors.red,
-                        ),
-                      ),
                       _isSending
                           ? const Padding(
                               padding: EdgeInsets.all(8.0),
