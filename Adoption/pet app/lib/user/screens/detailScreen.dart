@@ -3,8 +3,8 @@ import 'package:PetApp/user/screens/chatDetailScreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
-import 'package:lottie/lottie.dart'; // Import Lottie package
-import 'package:intl/intl.dart'; // Import intl package
+import 'package:lottie/lottie.dart';
+import 'package:intl/intl.dart';
 
 class DetailScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -24,6 +24,10 @@ class _DetailScreenState extends State<DetailScreen> {
   late Razorpay _razorpay;
   String _petType = '';
   bool _isLoading = false;
+  bool _showLicenseImage = false;
+  bool _showVaccinationImage = false;
+  String? _selectedPlace;
+  List<String> _places = [];
 
   @override
   void initState() {
@@ -32,12 +36,26 @@ class _DetailScreenState extends State<DetailScreen> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onRazorpayPaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onRazorpayPaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _onRazorpayExternalWallet);
+    _fetchPlaces();
   }
 
   @override
   void dispose() {
     _razorpay.clear();
     super.dispose();
+  }
+
+  Future<void> _fetchPlaces() async {
+    final doc = await FirebaseFirestore.instance
+        .collection(widget.data['collection'])
+        .doc(widget.data['id'])
+        .get();
+    final data = doc.data();
+    if (data != null && data.containsKey('places')) {
+      setState(() {
+        _places = List<String>.from(data['places']);
+      });
+    }
   }
 
   void _checkAndInitiatePayment(
@@ -84,8 +102,12 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+// Continue from previous code
   void _checkAndHandleCOD(
       BuildContext context, Map<String, dynamic> data, String field) async {
+    if (data['collection'] == 'Veterinary')
+      return; // Prevent COD for Veterinary collection
+
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
 
@@ -127,7 +149,7 @@ class _DetailScreenState extends State<DetailScreen> {
       });
       print('Document Updated in Firestore');
 
-if (ownerFieldCount > 0) {
+      if (ownerFieldCount > 0) {
         await ownerDocRef.update({
           fieldToUpdate: ownerFieldCount - 1,
         });
@@ -160,8 +182,12 @@ if (ownerFieldCount > 0) {
         'id': data['id'],
         'type': data['collection'],
         'paymentMethod': 'COD', // Add COD field
-        if (data['collection'] == 'Veterinary') 'type of pet': _petType,
       };
+
+      if (data['collection'] == 'Veterinary') {
+        customerData['type of pet'] = _petType;
+        customerData['place'] = _selectedPlace;
+      }
 
       final sellerDocRef = FirebaseFirestore.instance
           .collection('user')
@@ -176,13 +202,19 @@ if (ownerFieldCount > 0) {
       // Create a document in the Payments collection
       final paymentsDocRef =
           FirebaseFirestore.instance.collection('Payments').doc();
-      await paymentsDocRef.set({
+      final paymentData = {
         'id': data['id'],
         'type': data['collection'],
         'amount': docData?['price'],
         'time': FieldValue.serverTimestamp(),
         'paymentMethod': 'COD', // Add COD field
-      });
+      };
+
+      if (data['collection'] == 'Veterinary') {
+        paymentData['place'] = _selectedPlace;
+      }
+
+      await paymentsDocRef.set(paymentData);
 
       // Update the quantity in the subcollection of the user
       final userSubcollectionRef = FirebaseFirestore.instance
@@ -222,7 +254,6 @@ if (ownerFieldCount > 0) {
     setState(() {
       _isLoading = true;
     });
-
     final String ownerId = widget.data['userId'];
     final ownerDocRef = FirebaseFirestore.instance
         .collection('user')
@@ -249,7 +280,7 @@ if (ownerFieldCount > 0) {
       });
       print('Document Updated in Firestore');
 
-if (ownerFieldCount > 0) {
+      if (ownerFieldCount > 0) {
         await ownerDocRef.update({
           field: ownerFieldCount - 1,
         });
@@ -273,6 +304,7 @@ if (ownerFieldCount > 0) {
         'published': widget.data['published'],
         'location': widget.data['location'],
         'paymentMethod': 'Razorpay', // Default field for payment method
+        'place': _selectedPlace, // Store the selected place
       });
       print('CartList Updated for User');
 
@@ -283,6 +315,7 @@ if (ownerFieldCount > 0) {
         'type': widget.data['collection'],
         'paymentMethod': 'Razorpay', // Default field for payment method
         if (widget.data['collection'] == 'Veterinary') 'type of pet': _petType,
+        if (widget.data['collection'] == 'Veterinary') 'place': _selectedPlace,
       };
 
       final sellerDocRef = FirebaseFirestore.instance
@@ -322,12 +355,14 @@ if (ownerFieldCount > 0) {
         'amount': docData?['price'],
         'time': FieldValue.serverTimestamp(),
         'paymentMethod': 'Razorpay', // Default field for payment method
+        'place': _selectedPlace, // Store the selected place
       });
 
       // Update the quantity in the subcollection of the user
       final userSubcollectionRef = FirebaseFirestore.instance
           .collection('user')
           .doc(widget.data['userId'])
+          // Continue from previous code
           .collection(widget.data['collection'])
           .doc(widget.data['id']);
       final userSubcollectionDoc = await userSubcollectionRef.get();
@@ -362,7 +397,7 @@ if (ownerFieldCount > 0) {
     );
   }
 
-void _onRazorpayExternalWallet(ExternalWalletResponse response) {
+  void _onRazorpayExternalWallet(ExternalWalletResponse response) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
           content: Text('External wallet selected: ${response.walletName}')),
@@ -392,6 +427,70 @@ void _onRazorpayExternalWallet(ExternalWalletResponse response) {
               onPressed: () {
                 onSubmit(_controller.text);
                 Navigator.of(context).pop();
+                print('Prompting place selection');
+                _promptPlace((selectedPlace) {
+                  setState(() {
+                    _selectedPlace = selectedPlace;
+                  });
+                  _checkAndInitiatePayment(
+                      context, widget.data, 'appointments');
+                });
+              },
+              child: const Text('Okay'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _promptPlace(Function(String) onSubmit) async {
+    await _fetchPlaces();
+    if (!mounted) return; // Ensure the widget is still in the tree
+    if (_places.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No available places')),
+      );
+      return;
+    }
+
+    print('Showing place selection dialog with places: $_places');
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Place'),
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return DropdownButton<String>(
+                value: _selectedPlace,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedPlace = newValue;
+                  });
+                },
+                items: _places.map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (_selectedPlace != null) {
+                  onSubmit(_selectedPlace!);
+                  Navigator.of(context).pop();
+                }
               },
               child: const Text('Okay'),
             ),
@@ -406,14 +505,28 @@ void _onRazorpayExternalWallet(ExternalWalletResponse response) {
     bool isVeterinaryCollection = widget.data['collection'] == 'Veterinary';
     bool isPetsCollection = widget.data['collection'] == 'pets';
     bool isProductsCollection = widget.data['collection'] == 'products';
+    bool showActions = !['ApproveScreen', 'ProductCartScreen']
+        .contains(widget.navigationSource);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.data['text'] ?? 'Detail'),
       ),
       body: _isLoading
-          ? Center(
-              child: Lottie.asset('asset/image/loading.json'),
+          ? Stack(
+              children: [
+                Container(
+                  color:
+                      const Color.fromARGB(255, 237, 234, 234).withOpacity(0.6),
+                ),
+                Center(
+                  child: SizedBox(
+                    width: 200,
+                    height: 200,
+                    child: Lottie.asset('asset/image/loading.json'),
+                  ),
+                ),
+              ],
             )
           : Padding(
               padding: const EdgeInsets.all(16.0),
@@ -431,6 +544,56 @@ void _onRazorpayExternalWallet(ExternalWalletResponse response) {
                           fit: BoxFit.cover,
                         ),
                       ),
+                    if (isVeterinaryCollection &&
+                        widget.data.containsKey('licenseCertificateUrl'))
+                      Column(
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _showLicenseImage = !_showLicenseImage;
+                              });
+                            },
+                            child: Text(_showLicenseImage
+                                ? 'Hide License Certificate'
+                                : 'Show License Certificate'),
+                          ),
+                          if (_showLicenseImage)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10.0),
+                              child: Image.network(
+                                widget.data['licenseCertificateUrl'],
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                        ],
+                      ),
+                    if (isPetsCollection &&
+                        widget.data.containsKey('vaccinationUrl'))
+                      Column(
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _showVaccinationImage = !_showVaccinationImage;
+                              });
+                            },
+                            child: Text(_showVaccinationImage
+                                ? 'Hide Vaccination Record'
+                                : 'Show Vaccination Record'),
+                          ),
+                          if (_showVaccinationImage)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10.0),
+                              child: Image.network(
+                                widget.data['vaccinationUrl'],
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                        ],
+                      ),
                     const SizedBox(height: 16),
                     Text(
                       widget.data['text'] ?? 'Unknown',
@@ -442,7 +605,7 @@ void _onRazorpayExternalWallet(ExternalWalletResponse response) {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Published: ${widget.data['published']}',
+                      'Published: ${widget.data['publishedTime']}',
                       style: TextStyle(
                         fontSize: 16,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -450,7 +613,7 @@ void _onRazorpayExternalWallet(ExternalWalletResponse response) {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      widget.data['description'] ?? 'No description',
+                      widget.data['description'] ?? 'No description available',
                       style: const TextStyle(
                         fontSize: 18,
                       ),
@@ -468,8 +631,7 @@ void _onRazorpayExternalWallet(ExternalWalletResponse response) {
                       _buildDetailRow('Quantity', widget.data['quantity']),
                     ],
                     if (isVeterinaryCollection) ...[
-
-_buildDetailRow('Experience', widget.data['experience']),
+                      _buildDetailRow('Experience', widget.data['experience']),
                       _buildDetailRow('Price', widget.data['price']),
                       _buildDetailRow(
                           'Availability', widget.data['availability']),
@@ -501,7 +663,8 @@ _buildDetailRow('Experience', widget.data['experience']),
                                           .startsWith('asset/')
                                   ? NetworkImage(widget.data['profileImage'])
                                   : const AssetImage(
-                                      'asset/image/default_profile.png'),
+                                          'asset/image/default_profile.png')
+                                      as ImageProvider,
                           radius: 30,
                         ),
                         const SizedBox(width: 8),
@@ -516,108 +679,110 @@ _buildDetailRow('Experience', widget.data['experience']),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Column(
-                          children: [
-                            IconButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ChatDetailScreen(
-                                      name: widget.data['profileName'],
-                                      image: widget.data['profileImage'] !=
-                                                  null &&
-                                              widget.data['profileImage']
-                                                  .isNotEmpty
-                                          ? widget.data['profileImage']
-                                          : 'asset/image/default_profile.png',
-                                      navigationSource: 'DetailScreen',
-                                      userId: widget.data['userId'],
+                    if (showActions)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Column(
+                            children: [
+                              IconButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ChatDetailScreen(
+                                        name: widget.data['profileName'],
+                                        // Continue from previous code
+                                        image: widget.data['profileImage'] !=
+                                                    null &&
+                                                widget.data['profileImage']
+                                                    .isNotEmpty
+                                            ? widget.data['profileImage']
+                                            : 'asset/image/default_profile.png',
+                                        navigationSource: 'DetailScreen',
+                                        userId: widget.data['userId'],
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.message_outlined),
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const Text('Chat'),
-                          ],
-                        ),
-                        if (isVeterinaryCollection)
-                          Column(
-                            children: [
-                              IconButton(
-                                onPressed: () {
-                                  _promptPetType(context, (petType) {
-
-setState(() {
-                                      _petType = petType;
+                                  );
+                                },
+                                icon: const Icon(Icons.message_outlined),
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const Text('Chat'),
+                            ],
+                          ),
+                          if (isVeterinaryCollection)
+                            Column(
+                              children: [
+                                IconButton(
+                                  onPressed: () {
+                                    _promptPetType(context, (petType) {
+                                      setState(() {
+                                        _petType = petType;
+                                      });
                                     });
+                                  },
+                                  icon: const Icon(Icons.event_note_outlined),
+                                  color:
+                                      Theme.of(context).colorScheme.secondary,
+                                ),
+                                const Text('Book Appointment'),
+                              ],
+                            )
+                          else
+                            Column(
+                              children: [
+                                IconButton(
+                                  onPressed: () {
                                     _checkAndInitiatePayment(
-                                        context, widget.data, 'appointments');
-                                  });
-                                },
-                                icon: const Icon(Icons.event_note_outlined),
-                                color: Theme.of(context).colorScheme.secondary,
-                              ),
-                              const Text('Book Appointment'),
-                            ],
-                          )
-                        else
-                          Column(
-                            children: [
-                              IconButton(
-                                onPressed: () {
-                                  _checkAndInitiatePayment(
-                                      context, widget.data, 'quantity');
-                                },
-                                icon: const Icon(
-                                    Icons.add_shopping_cart_outlined),
-                                color: Theme.of(context).colorScheme.tertiary,
-                              ),
-                              const Text('Add to Cart'),
-                            ],
-                          ),
-                        Column(
-                          children: [
-                            IconButton(
-                              onPressed: () {
-                                _checkAndHandleCOD(
-                                    context, widget.data, 'quantity');
-                              },
-                              icon: const Icon(Icons.attach_money_outlined),
-                              color: Theme.of(context).colorScheme.primary,
+                                        context, widget.data, 'quantity');
+                                  },
+                                  icon: const Icon(
+                                      Icons.add_shopping_cart_outlined),
+                                  color: Theme.of(context).colorScheme.tertiary,
+                                ),
+                                const Text('Add to Cart'),
+                              ],
                             ),
-                            const Text('Cash on Delivery'),
-                          ],
-                        ),
-                      ],
-                    ),
+                          if (!isVeterinaryCollection)
+                            Column(
+                              children: [
+                                IconButton(
+                                  onPressed: () {
+                                    _checkAndHandleCOD(
+                                        context, widget.data, 'quantity');
+                                  },
+                                  icon: const Icon(Icons.attach_money_outlined),
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const Text('Cash on Delivery'),
+                              ],
+                            ),
+                        ],
+                      ),
                     const SizedBox(height: 16),
-                    Center(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          addItemToCart(context, widget.data);
-                        },
-                        child: const Text('Add to Cart'),
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          textStyle: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    if (showActions)
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            addItemToCart(context, widget.data);
+                          },
+                          child: const Text('Add to Cart'),
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -661,7 +826,7 @@ setState(() {
         .collection('CartList')
         .doc(item['id']);
 
-final cartItemSnapshot = await cartItemRef.get();
+    final cartItemSnapshot = await cartItemRef.get();
 
     if (cartItemSnapshot.exists) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -683,6 +848,7 @@ final cartItemSnapshot = await cartItemRef.get();
         'location': item['location'],
         'status': 'wishlist',
         'addedAt': FieldValue.serverTimestamp(),
+        'place': _selectedPlace, // Store the selected place
       };
 
       await cartItemRef.set(cartItem);
@@ -700,6 +866,7 @@ final cartItemSnapshot = await cartItemRef.get();
         'id': item['id'],
         'type': item['collection'], // Added field type
         if (widget.data['collection'] == 'Veterinary') 'type of pet': _petType,
+        if (widget.data['collection'] == 'Veterinary') 'place': _selectedPlace,
       };
 
       final sellerCustomerRef = FirebaseFirestore.instance

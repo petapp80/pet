@@ -18,13 +18,26 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _startAnimation();
+    _checkLoginStatus();
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  Future<void> _checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    if (isLoggedIn) {
+      _navigateToHome();
+    } else {
+      _startAnimation();
+    }
+  }
+
+  void _navigateToHome() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const HomePage(),
+      ),
+    );
   }
 
   void _startAnimation() {
@@ -42,21 +55,22 @@ class _SplashScreenState extends State<SplashScreen> {
           }
         });
 
-        _timer = Timer(Duration(seconds: 3), () async {
-          final prefs = await SharedPreferences.getInstance();
-          final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    isLoggedIn ? const HomePage() : const SignUpPage(),
-              ),
-            );
-          }
+        _timer = Timer(Duration(seconds: 3), () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SignUpPage(),
+            ),
+          );
         });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override

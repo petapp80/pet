@@ -17,6 +17,7 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
   bool _isBlocked = false;
   bool _isUpdating = false;
   final cron = Cron();
+  String? place; // Added place to store the selected place
 
   @override
   void initState() {
@@ -46,6 +47,7 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
       final status = data['status'] as String;
       final typeOfPet = data['type of pet'] as String? ??
           'Unknown'; // Provide a default value
+      final place = data['place'] as String?; // Retrieve the selected place
 
       final customerDoc = await FirebaseFirestore.instance
           .collection('user')
@@ -59,6 +61,7 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
           'patientName': customerName,
           'petType': typeOfPet,
           'status': status,
+          'place': place, // Add place to the appointment data
         });
       }
     }
@@ -310,6 +313,8 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
                             appointmentData['type of pet'] as String? ??
                                 'Unknown';
                         final status = appointmentData['status'] as String;
+                        final place =
+                            appointmentData['place'] as String? ?? 'Unknown';
 
                         return FutureBuilder<String>(
                           future: _getPatientName(customerId),
@@ -329,6 +334,7 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
                                 patientName: patientName,
                                 petType: petType,
                                 status: status,
+                                place: place,
                                 customerId: customerId,
                                 itemId: itemId,
                                 onComplete: () async {
@@ -363,6 +369,7 @@ class AppointmentTile extends StatelessWidget {
   final String patientName;
   final String petType;
   final String status;
+  final String place; // Updated to use place
   final String customerId;
   final String itemId;
   final VoidCallback onComplete;
@@ -371,6 +378,7 @@ class AppointmentTile extends StatelessWidget {
     required this.patientName,
     required this.petType,
     required this.status,
+    required this.place, // Updated to use place
     required this.customerId,
     required this.itemId,
     required this.onComplete,
@@ -387,7 +395,13 @@ class AppointmentTile extends StatelessWidget {
           color: status == 'completed' ? Colors.green : Colors.orange,
         ),
         title: Text("Patient: $patientName"),
-        subtitle: Text("Pet: $petType"),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Pet: $petType"),
+            Text("Place: $place"), // Display place
+          ],
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -138,6 +138,7 @@ class _SearchscreenState extends State<Searchscreen> {
     String collection;
     String nameField;
     bool filterApproved = true;
+
     switch (_selectedOption) {
       case 'Products':
         collection = 'products';
@@ -175,7 +176,15 @@ class _SearchscreenState extends State<Searchscreen> {
                   .toLowerCase()
                   .contains(_searchQuery.toLowerCase()) ??
               false;
-          bool approved = filterApproved ? (data['approved'] == true) : true;
+          bool approved = true;
+          if (filterApproved) {
+            if (collection == 'Veterinary') {
+              approved =
+                  data.containsKey('approved') && data['approved'] == true;
+            } else {
+              approved = data['approved'] == true;
+            }
+          }
           return matchesQuery && approved;
         }).toList();
 
@@ -198,10 +207,6 @@ class _SearchscreenState extends State<Searchscreen> {
                   } else {
                     final profileData = snapshot.data!;
                     final isUserApproved = profileData['isApproved'] == 'true';
-
-                    if (!isUserApproved) {
-                      return const SizedBox.shrink();
-                    }
 
                     final publishedTime =
                         (item['publishedTime'] as Timestamp?)?.toDate();
@@ -602,9 +607,7 @@ class ArticleDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              article['image'] != null
-                  ? Image.network(article['image'])
-                  : const SizedBox.shrink(),
+              if (article['image'] != null) Image.network(article['image']),
               const SizedBox(height: 16),
               Text(
                 article['title'],
@@ -639,6 +642,11 @@ class ArticleDetailScreen extends StatelessWidget {
                     ),
                   );
                 } else if (part['type'] == 'image') {
+                  // Skip the title image
+                  if (article['image'] != null &&
+                      part['content'] == article['image']) {
+                    return const SizedBox.shrink();
+                  }
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Image.network(part['content']),

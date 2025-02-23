@@ -59,7 +59,6 @@ class _ProductEditState extends State<ProductEdit> {
 
   Future<void> _fetchProductData() async {
     try {
-      print('Fetching Product Data for ID: ${widget.productId}'); // Debug print
       var productDoc = await FirebaseFirestore.instance
           .collection('user')
           .doc(widget.userId)
@@ -71,8 +70,6 @@ class _ProductEditState extends State<ProductEdit> {
         if (productData != null) {
           _initializeProductFields(productData);
         }
-      } else {
-        print('Product Document does not exist.');
       }
     } catch (e) {
       print('Error fetching product data: $e');
@@ -80,7 +77,6 @@ class _ProductEditState extends State<ProductEdit> {
   }
 
   void _initializeProductFields(Map<String, dynamic> productData) {
-    print('Initializing Product Fields: $productData'); // Debug print
     setState(() {
       _descriptionController.text = productData['description'] ?? '';
       _productNameController.text = productData['productName'] ?? '';
@@ -148,7 +144,10 @@ class _ProductEditState extends State<ProductEdit> {
 
     if (shouldDelete == true) {
       try {
-        // Deleting the product document
+        // Delete from Cloudinary
+        await _deleteFromCloudinary(widget.productData['imagePublicId']);
+
+        // Delete the product document from user's subcollection
         await FirebaseFirestore.instance
             .collection('user')
             .doc(widget.userId)
@@ -156,20 +155,16 @@ class _ProductEditState extends State<ProductEdit> {
             .doc(widget.productId)
             .delete();
 
-        // Deleting the user document
+        // Delete the product document from the pets collection
         await FirebaseFirestore.instance
-            .collection('user')
-            .doc(widget.userId)
+            .collection('pets')
+            .doc(widget.productId)
             .delete();
 
-        print(
-            'Product and User documents deleted: ${widget.productId}, ${widget.userId}');
-
+        print('Product documents deleted: ${widget.productId}');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Product and User deleted successfully')),
+          const SnackBar(content: Text('Product deleted successfully')),
         );
-
         Navigator.pop(context, true);
       } catch (e) {
         print('Error deleting product: $e');
@@ -178,6 +173,11 @@ class _ProductEditState extends State<ProductEdit> {
         );
       }
     }
+  }
+
+  Future<void> _deleteFromCloudinary(String publicId) async {
+    // Implement Cloudinary deletion logic here
+    // Example: await cloudinary.api.deleteResources([publicId]);
   }
 
   @override

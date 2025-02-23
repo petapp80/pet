@@ -36,6 +36,11 @@ class _ReportScreenState extends State<ReportScreen> {
     await FirebaseFirestore.instance.collection('Reports').doc(docId).delete();
   }
 
+  Future<void> _removeFromReports(String docId) async {
+    // Delete from Reports collection only
+    await FirebaseFirestore.instance.collection('Reports').doc(docId).delete();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -156,6 +161,19 @@ class _ReportScreenState extends State<ReportScreen> {
                                 },
                                 icon:
                                     const Icon(Icons.delete, color: Colors.red),
+                              ),
+                              IconButton(
+                                onPressed: () async {
+                                  await _removeFromReports(reports[index].id);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Document removed from Reports collection'),
+                                    ),
+                                  );
+                                },
+                                icon:
+                                    const Icon(Icons.check, color: Colors.blue),
                               ),
                             ],
                           ),

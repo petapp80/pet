@@ -194,9 +194,13 @@ class _EditProfileState extends State<EditProfile> {
                     backgroundImage: _selectedProfileImagePath != null
                         ? FileImage(File(_selectedProfileImagePath!))
                         : (_existingProfileImageUrl != null
-                                ? NetworkImage(_existingProfileImageUrl!)
-                                : const AssetImage('asset/image/care.jpg'))
-                            as ImageProvider,
+                            ? NetworkImage(_existingProfileImageUrl!)
+                            : null) as ImageProvider?,
+                    backgroundColor: Colors.grey.shade200,
+                    child: _selectedProfileImagePath == null &&
+                            _existingProfileImageUrl == null
+                        ? const Icon(Icons.person, size: 60)
+                        : null,
                   ),
                   if (_selectedProfileImagePath != null)
                     Positioned(

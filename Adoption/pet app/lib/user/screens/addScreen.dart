@@ -32,9 +32,11 @@ class _AddScreenState extends State<AddScreen> {
   TextEditingController quantityController = TextEditingController();
 
   File? _selectedFile;
+  File? _vaccinationFile; // New File variable for vaccination certificate
   String _selectedCurrency = 'USD'; // Currency selection
   String _selectedSex = 'Male'; // Default sex selection
   String? _existingImageUrl;
+  String? _existingVaccinationUrl; // New variable to hold the vaccination certificate URL
   bool _isLoading = false;
   bool _approved = false;
 
@@ -78,6 +80,7 @@ class _AddScreenState extends State<AddScreen> {
           aboutController.text = data['about'];
           quantityController.text = data['quantity'].toString();
           _existingImageUrl = data['imageUrl'];
+          _existingVaccinationUrl = data['vaccinationUrl']; // Get the vaccination certificate URL if it exists
           _approved = data.containsKey('approved') ? data['approved'] : false;
         });
       } else {
@@ -106,6 +109,21 @@ class _AddScreenState extends State<AddScreen> {
     }
   }
 
+  Future<void> _pickVaccinationFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'heic'], // allowed file types
+    );
+
+    if (result != null) {
+      setState(() {
+        _vaccinationFile = File(result.files.single.path!);
+        _existingVaccinationUrl =
+            null; // Reset existing vaccination certificate if a new one is picked
+      });
+    }
+  }
+
   void _removeFile() {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
       content: Text("File Canceled"),
@@ -117,23 +135,34 @@ class _AddScreenState extends State<AddScreen> {
     });
   }
 
-  Future<Map<String, dynamic>?> _uploadToCloudinary(File imageFile) async {
+  void _removeVaccinationFile() {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text("Vaccination Certificate Canceled"),
+      duration: Duration(seconds: 1),
+    ));
+    setState(() {
+      _vaccinationFile = null; // Remove the selected vaccination file
+      _existingVaccinationUrl = null; // Clear the existing vaccination URL
+    });
+  }
+
+  Future<Map<String, dynamic>?> _uploadToCloudinary(
+      File imageFile, String preset) async {
     try {
       const cloudName = 'db3cpgdwm';
-      const uploadPreset = 'pet_preset';
       const apiKey = '545187993373729';
       const apiSecret = 'gdgWv-rubTrQTMn6KG0T7-Q5Cfw';
 
       final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       final signature = sha1
-          .convert(utf8.encode(
-              'timestamp=$timestamp&upload_preset=$uploadPreset$apiSecret'))
+          .convert(utf8
+              .encode('timestamp=$timestamp&upload_preset=$preset$apiSecret'))
           .toString();
 
       final uri =
           Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload');
       final request = http.MultipartRequest('POST', uri);
-      request.fields['upload_preset'] = uploadPreset;
+      request.fields['upload_preset'] = preset;
       request.fields['api_key'] = apiKey;
       request.fields['timestamp'] = timestamp;
       request.fields['signature'] = signature;
@@ -155,6 +184,24 @@ class _AddScreenState extends State<AddScreen> {
     } catch (e) {
       print('Error uploading image: $e');
       return null;
+    }
+  }
+
+  Future<void> _deleteFromCloudinary(String publicId) async {
+    try {
+      final uri = Uri.parse(
+          'https://api.cloudinary.com/v1_1/db3cpgdwm/delete_by_token');
+      final response = await http.post(uri, body: {
+        'token': publicId,
+      });
+
+      if (response.statusCode == 200) {
+        print('Image deleted successfully.');
+      } else {
+        print('Error deleting image: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error deleting image: $e');
     }
   }
 
@@ -195,13 +242,32 @@ class _AddScreenState extends State<AddScreen> {
 
       String? imageUrl = _existingImageUrl;
       String? imagePublicId;
+      String? vaccinationUrl = _existingVaccinationUrl;
+      String? vaccinationPublicId;
 
       if (_selectedFile != null) {
-        final uploadResponse = await _uploadToCloudinary(_selectedFile!);
+        final uploadResponse =
+            await _uploadToCloudinary(_selectedFile!, 'pet_preset');
         if (uploadResponse != null) {
+          if (_existingImageUrl != null) {
+            await _deleteFromCloudinary(_existingImageUrl!);
+          }
           imageUrl = uploadResponse['secure_url'];
           imagePublicId = uploadResponse['public_id'];
           print("Image uploaded: $imageUrl");
+        }
+      }
+
+      if (_vaccinationFile != null) {
+        final uploadResponse =
+            await _uploadToCloudinary(_vaccinationFile!, 'vaccination_preset');
+               if (uploadResponse != null) {
+          if (_existingVaccinationUrl != null) {
+            await _deleteFromCloudinary(_existingVaccinationUrl!);
+          }
+          vaccinationUrl = uploadResponse['secure_url'];
+          vaccinationPublicId = uploadResponse['public_id'];
+          print("Vaccination certificate uploaded: $vaccinationUrl");
         }
       }
 
@@ -215,9 +281,11 @@ class _AddScreenState extends State<AddScreen> {
         'location': locationController.text,
         'price': '${_selectedCurrency} ${priceController.text}',
         'about': aboutController.text,
-        'quantity': quantityController.text, // Add quantity field
+        'quantity': int.parse(quantityController.text), // Add quantity field
         'imageUrl': imageUrl,
         'imagePublicId': imagePublicId,
+        'vaccinationUrl': vaccinationUrl, // Add vaccination certificate URL
+        'vaccinationPublicId': vaccinationPublicId, // Add vaccination certificate public ID
         'publishedTime': FieldValue.serverTimestamp(), // Add published time
         'approved': _approved, // Retain approved field if it exists
       };
@@ -232,8 +300,7 @@ class _AddScreenState extends State<AddScreen> {
       if (widget.docId == null) {
         petDocRef = FirebaseFirestore.instance.collection('pets').doc();
       } else {
-        petDocRef =
-            FirebaseFirestore.instance.collection('pets').doc(widget.docId);
+        petDocRef = FirebaseFirestore.instance.collection('pets').doc(widget.docId);
       }
 
       // Add or update pet document in Firestore
@@ -510,16 +577,15 @@ class _AddScreenState extends State<AddScreen> {
                           ? 'Select Image'
                           : 'File Selected: ${_selectedFile!.path.split('/').last}'),
                     ),
-                    const SizedBox(height: 10),
+                                       const SizedBox(height: 10),
 
-                    // Display selected file with close button
+                    // Display selected image with close button
                     if (_selectedFile != null || _existingImageUrl != null)
                       Center(
                         child: Stack(
-                          alignment:
-                              Alignment.topRight, // Close button at top right
+                          alignment: Alignment.topRight, // Close button at top right
                           children: [
-                            // Displaying the selected file as an image
+                            // Displaying the selected image as an image
                             _selectedFile != null
                                 ? Image.file(
                                     _selectedFile!,
@@ -543,6 +609,45 @@ class _AddScreenState extends State<AddScreen> {
                       ),
                     const SizedBox(height: 10),
 
+                    // Vaccination Certificate Selection Button
+                    ElevatedButton(
+                      onPressed: _pickVaccinationFile,
+                      child: Text(_vaccinationFile == null
+                          ? 'Select Vaccination Certificate'
+                          : 'File Selected: ${_vaccinationFile!.path.split('/').last}'),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Display selected vaccination certificate with close button
+                    if (_vaccinationFile != null || _existingVaccinationUrl != null)
+                      Center(
+                        child: Stack(
+                          alignment: Alignment.topRight, // Close button at top right
+                          children: [
+                            // Displaying the selected vaccination certificate as an image
+                            _vaccinationFile != null
+                                ? Image.file(
+                                    _vaccinationFile!,
+                                    height: 200,
+                                    width: 200,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.network(
+                                    _existingVaccinationUrl!,
+                                    height: 200,
+                                    width: 200,
+                                    fit: BoxFit.cover,
+                                  ),
+                            // Close button positioned above the image
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.red),
+                              onPressed: _removeVaccinationFile,
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 10),
+
                     // Publish Button
                     ElevatedButton(
                       onPressed: _isLoading
@@ -550,8 +655,7 @@ class _AddScreenState extends State<AddScreen> {
                           : () {
                               if (_formKey.currentState!.validate()) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Publishing...')),
+                                  const SnackBar(content: Text('Publishing...')),
                                 );
                                 // Call the _publishPet function to handle publishing logic
                                 _publishPet();

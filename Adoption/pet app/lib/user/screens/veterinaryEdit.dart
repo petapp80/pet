@@ -27,6 +27,10 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
   final TextEditingController _imageUrlController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _licenseCertificatePublicIdController =
+      TextEditingController();
+  final TextEditingController _licenseCertificateUrlController =
+      TextEditingController();
   final TextEditingController _userIdController = TextEditingController();
 
   bool nameEditMode = false;
@@ -37,6 +41,8 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
   bool imageUrlEditMode = false;
   bool locationEditMode = false;
   bool priceEditMode = false;
+  bool licenseCertificatePublicIdEditMode = false;
+  bool licenseCertificateUrlEditMode = false;
   bool userIdEditMode = false;
 
   @override
@@ -56,18 +62,11 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
           .doc(widget.vetData['vetDocId'])
           .get();
 
-      print(
-          'Fetching veterinary data for userId: ${widget.userId}, vetDocId: ${widget.vetData['vetDocId']}');
       if (vetDoc.exists) {
         var vetData = vetDoc.data();
-        print('Veterinary data fetched: $vetData');
         if (vetData != null) {
           _initializeVeterinaryFields(vetData);
-        } else {
-          print('No data found in veterinary document.');
         }
-      } else {
-        print('Veterinary document does not exist.');
       }
     } catch (e) {
       print('Error fetching veterinary data: $e');
@@ -83,8 +82,11 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
       _imageUrlController.text = vetData['imageUrl'] ?? '';
       _locationController.text = vetData['location'] ?? '';
       _priceController.text = vetData['price'] ?? '';
+      _licenseCertificatePublicIdController.text =
+          vetData['licenseCertificatePublicId'] ?? '';
+      _licenseCertificateUrlController.text =
+          vetData['licenseCertificateUrl'] ?? '';
     });
-    print('Initialized veterinary fields with data: $vetData');
   }
 
   Future<void> _saveChanges() async {
@@ -107,6 +109,9 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
         'imageUrl': _imageUrlController.text,
         'location': _locationController.text,
         'price': _priceController.text,
+        'licenseCertificatePublicId':
+            _licenseCertificatePublicIdController.text,
+        'licenseCertificateUrl': _licenseCertificateUrlController.text,
         'approved': approvedValue, // Keep the existing approved value
       });
 
@@ -122,6 +127,9 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
         'imageUrl': _imageUrlController.text,
         'location': _locationController.text,
         'price': _priceController.text,
+        'licenseCertificatePublicId':
+            _licenseCertificatePublicIdController.text,
+        'licenseCertificateUrl': _licenseCertificateUrlController.text,
         'approved': approvedValue, // Keep the existing approved value
       });
 
@@ -158,28 +166,46 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
 
     if (shouldDelete == true) {
       try {
-        // Delete the veterinary document
+        // Fetch veterinary data to get imagePublicId and licenseCertificatePublicId
+        var vetDoc = await FirebaseFirestore.instance
+            .collection('user')
+            .doc(widget.userId)
+            .collection('Veterinary')
+            .doc(widget.vetData['vetDocId'])
+            .get();
+
+        if (vetDoc.exists) {
+          var vetData = vetDoc.data();
+          if (vetData != null) {
+            var imagePublicId = vetData['imagePublicId'];
+            var licenseCertificatePublicId =
+                vetData['licenseCertificatePublicId'];
+
+            // Delete from Cloudinary
+            await _deleteFromCloudinary(imagePublicId);
+            await _deleteFromCloudinary(licenseCertificatePublicId);
+          }
+        }
+
+        // Delete the veterinary document from user's subcollection
         await FirebaseFirestore.instance
             .collection('user')
             .doc(widget.userId)
             .collection('Veterinary')
             .doc(widget.vetData['vetDocId'])
             .delete();
-        print('Veterinary document deleted: ${widget.vetData['vetDocId']}');
 
-        // Delete the corresponding document from the outside Veterinary collection
+        // Delete the corresponding document from the Veterinary collection
         await FirebaseFirestore.instance
             .collection('Veterinary')
             .doc(widget.vetData['vetDocId'])
             .delete();
-        print(
-            'Veterinary document deleted from outside collection: ${widget.vetData['vetDocId']}');
 
+        print('Veterinary document deleted: ${widget.vetData['vetDocId']}');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Veterinary record deleted successfully')),
         );
-
         Navigator.pop(context, true);
       } catch (e) {
         print('Error deleting veterinary: $e');
@@ -188,6 +214,11 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
         );
       }
     }
+  }
+
+  Future<void> _deleteFromCloudinary(String publicId) async {
+    // Implement Cloudinary deletion logic here
+    // Example: await cloudinary.api.deleteResources([publicId]);
   }
 
   @override
@@ -310,6 +341,31 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
                 ),
                 const SizedBox(height: 10),
                 _buildLabelTextField(
+                  label: 'License Certificate Public ID',
+                  controller: _licenseCertificatePublicIdController,
+                  editMode: licenseCertificatePublicIdEditMode,
+                  onEditPressed: () {
+                    setState(() {
+                      licenseCertificatePublicIdEditMode =
+                          !licenseCertificatePublicIdEditMode;
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                _buildLabelTextField(
+                  label: 'License Certificate URL',
+                  controller: _licenseCertificateUrlController,
+                  editMode: licenseCertificateUrlEditMode,
+                  onEditPressed: () {
+                    setState(() {
+                      licenseCertificateUrlEditMode =
+                          !licenseCertificateUrlEditMode;
+                    });
+                  },
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 10),
+                _buildLabelTextField(
                   label: 'User ID',
                   controller: _userIdController,
                   editMode: userIdEditMode,
@@ -338,8 +394,10 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -349,8 +407,10 @@ class _VeterinaryEditState extends State<VeterinaryEdit> {
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 10,
+              horizontal: 10,
+            ),
           ),
         ),
         const SizedBox(height: 8),

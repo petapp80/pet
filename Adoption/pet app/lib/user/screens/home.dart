@@ -1,8 +1,9 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:PetApp/user/screens/chatDetailScreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart'; // Import intl package import 'floatingbttn.dart';
+import 'package:intl/intl.dart';
 import 'floatingbttn.dart';
 import 'productScreen.dart';
 import 'profile.dart';
@@ -26,15 +27,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   DateTime? lastBackPressed;
   String? _userPosition;
   late final List<Widget> _screens;
+  int? _totalDocs;
 
   @override
   void initState() {
     super.initState();
     _fetchUserPosition();
+    _getTotalDocs();
     _screens = [
       const Messagescreen(navigationSource: 'HomePage'),
       const Searchscreen(navigationSource: 'HomePage'),
-      Container(), // Placeholder, _buildHomeScreen will be rebuilt later
+      Container(),
       const CartScreen(navigationSource: 'HomePage'),
       const ProfileScreen(navigationSource: 'HomePage'),
     ];
@@ -51,6 +54,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         _userPosition = userDoc.data()?['position'];
       });
     }
+  }
+
+  Future<void> _getTotalDocs() async {
+    final querySnapshot =
+        await FirebaseFirestore.instance.collection('products').get();
+    setState(() {
+      _totalDocs = querySnapshot.size;
+    });
   }
 
   @override
@@ -96,7 +107,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildSection('products', 'productName'),
+              _buildSection('products', 'description'),
               const SizedBox(height: 16),
               const Text(
                 'Veterinary',
@@ -115,22 +126,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Widget _buildSection(String collection, String nameField) {
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance
-          .collection(collection)
-          .where('approved', isEqualTo: true)
-          .limit(5)
-          .get(),
+    return FutureBuilder<List<QueryDocumentSnapshot>>(
+      future: _fetchApprovedDocuments(collection),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return const Center(child: Text('Error fetching data'));
-        } else if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text('No data found'));
         } else {
           return Column(
-            children: snapshot.data!.docs.map((doc) {
+            children: snapshot.data!.map((doc) {
               final data = doc.data() as Map<String, dynamic>;
               return FutureBuilder<DocumentSnapshot>(
                 future: FirebaseFirestore.instance
@@ -145,8 +152,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         child: Text('Error fetching user data'));
                   } else if (!userSnapshot.hasData ||
                       !userSnapshot.data!.exists) {
-                    return const SizedBox
-                        .shrink(); // Hide the tile if user is not found
+                    return const SizedBox.shrink();
                   } else {
                     final userData =
                         userSnapshot.data!.data() as Map<String, dynamic>;
@@ -157,6 +163,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     final publishedDate = publishedTime != null
                         ? DateFormat('dd MMM yyyy').format(publishedTime)
                         : 'Unknown date';
+                    final licenseCertificateUrl = collection == 'Veterinary' &&
+                            data.containsKey('licenseCertificateUrl')
+                        ? data['licenseCertificateUrl']
+                        : null;
+
+                    final vaccinationUrl = collection == 'pets' &&
+                            data.containsKey('vaccinationUrl')
+                        ? data['vaccinationUrl']
+                        : null;
 
                     return GestureDetector(
                       onTap: () {
@@ -169,8 +184,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 'collection': collection,
                                 'image': data['imageUrl'] ?? '',
                                 'text': data[nameField] ?? 'Unknown',
-                                'description':
-                                    data['about'] ?? 'No description',
+                                'description': collection == 'products'
+                                    ? data['description']
+                                    : data['about'] ?? 'No description',
                                 'location':
                                     data['location'] ?? 'Unknown location',
                                 'published': publishedDate,
@@ -179,7 +195,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 'profileName':
                                     userData['name'] ?? 'Unknown user',
                                 'userId': data['userId'],
-                                // Include additional fields as necessary
                                 'age': data['age'],
                                 'breed': data['breed'],
                                 'colour': data['colour'],
@@ -189,6 +204,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 'quantity': data['quantity'],
                                 'experience': data['experience'],
                                 'availability': data['availability'],
+                                if (licenseCertificateUrl != null)
+                                  'licenseCertificateUrl':
+                                      licenseCertificateUrl,
+                                if (vaccinationUrl != null)
+                                  'vaccinationUrl': vaccinationUrl,
                               },
                               navigationSource: 'HomePage',
                             ),
@@ -200,7 +220,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         collection: collection,
                         image: data['imageUrl'] ?? '',
                         text: data[nameField] ?? 'Unknown',
-                        description: data['about'] ?? 'No description',
+                        description: collection == 'products'
+                            ? data['description']
+                            : data['about'] ?? 'No description',
                         location: data['location'] ?? 'Unknown location',
                         published: publishedDate,
                         profileImage: userData['profileImage'] != null &&
@@ -221,6 +243,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         }
       },
     );
+  }
+
+  Future<List<QueryDocumentSnapshot>> _fetchApprovedDocuments(
+      String collection) async {
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection(collection)
+        .where('approved', isEqualTo: true)
+        .get();
+
+    final approvedDocs = querySnapshot.docs;
+    approvedDocs.shuffle(); // Shuffle the list to get a random subset
+    final randomDocs = approvedDocs.take(5).toList(); // Take 5 random documents
+
+    return randomDocs;
   }
 
   Widget _buildTile({
@@ -437,8 +473,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Future<void> _handleRefresh() async {
-    await Future.delayed(const Duration(seconds: 2));
+    setState(() {});
+    await _getTotalDocs();
     setState(() {
+      _screens[2] = _buildHomeScreen();
       print("Refreshed");
     });
   }

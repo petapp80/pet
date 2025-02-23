@@ -346,7 +346,9 @@ class _CartScreenState extends State<CartScreen> {
                                           Theme.of(context).colorScheme.primary,
                                     ),
                                     if (_selectedFilter == 'Ongoing' &&
-                                        item['paymentMethod'] == null)
+                                        (item['paymentMethod'] == null ||
+                                            item['paymentMethod'] ==
+                                                'Razorpay'))
                                       IconButton(
                                         onPressed: () {
                                           _updateItemStatus(item['id'],

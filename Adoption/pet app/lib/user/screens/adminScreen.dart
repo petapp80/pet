@@ -42,7 +42,7 @@ class _AdminPageState extends State<AdminPage> {
                     'Newly Registered',
                     'Sales',
                     'Feedback',
-                    'Articles',
+                    'Pet Care Tip',
                     'Approve', // Added Approve tile
                     'Reports' // Added Reports tile
                   ];
@@ -51,7 +51,7 @@ class _AdminPageState extends State<AdminPage> {
                   final pages = [
                     const NewlyRegistered(), // Newly Registered page
                     const SalesScreen(), // Sales page
-                    const Feedbackscreen(), // Feedback page
+                    const FeedbackScreen(), // Feedback page
                     const GiveUpdate(), // Give Update page
                     const ApproveScreen(), // Approve page
                     const ReportScreen(), // Report page

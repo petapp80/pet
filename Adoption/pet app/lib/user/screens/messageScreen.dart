@@ -26,6 +26,13 @@ class _MessagescreenState extends State<Messagescreen> {
     _loadMessages();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
   // Function to load messages from Firestore
   Future<void> _loadMessages() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -61,6 +68,8 @@ class _MessagescreenState extends State<Messagescreen> {
         .collection(collectionName!)
         .get();
 
+    if (!mounted) return; // Check if the widget is still mounted
+
     setState(() {
       _filteredMessages = [
         {
@@ -86,13 +95,15 @@ class _MessagescreenState extends State<Messagescreen> {
       final profileImage =
           receiverData?['profileImage'] ?? 'asset/image/default_profile.png';
 
-      setState(() {
-        _filteredMessages.add({
-          'name': name,
-          'profileImage': profileImage,
-          'userId': receiverId,
+      if (mounted) {
+        setState(() {
+          _filteredMessages.add({
+            'name': name,
+            'profileImage': profileImage,
+            'userId': receiverId,
+          });
         });
-      });
+      }
 
       print(
           "Fetched Data: name=$name, profileImage=$profileImage, userId=$receiverId");
@@ -125,6 +136,8 @@ class _MessagescreenState extends State<Messagescreen> {
 
     final querySnapshot =
         await FirebaseFirestore.instance.collection('user').get();
+
+    if (!mounted) return; // Check if the widget is still mounted
 
     setState(() {
       _suggestedUsers = querySnapshot.docs

@@ -22,7 +22,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String? _profileImagePath;
   bool _isDarkTheme = false;
-  late Stream<DocumentSnapshot> _userStream;
+  Stream<DocumentSnapshot>? _userStream;
 
   @override
   void initState() {
@@ -64,40 +64,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
         centerTitle: true,
         backgroundColor: _isDarkTheme ? Colors.black : Colors.teal,
       ),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: _userStream,
-        builder: (context, snapshot) {
-          Widget profileContent;
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            profileContent = _buildLoadingScreen();
-          } else if (snapshot.hasError) {
-            profileContent = _buildErrorScreen();
-          } else if (snapshot.hasData && snapshot.data != null) {
-            final profileData = snapshot.data!.data() as Map<String, dynamic>?;
-            profileContent = profileData != null
-                ? _buildProfileDetails(profileData)
-                : _handleMissingProfileData();
-          } else {
-            profileContent = _handleMissingProfileData();
-          }
+      body: _userStream != null
+          ? StreamBuilder<DocumentSnapshot>(
+              stream: _userStream,
+              builder: (context, snapshot) {
+                Widget profileContent;
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  profileContent = _buildLoadingScreen();
+                } else if (snapshot.hasError) {
+                  profileContent = _buildErrorScreen();
+                } else if (snapshot.hasData && snapshot.data != null) {
+                  final profileData =
+                      snapshot.data!.data() as Map<String, dynamic>?;
+                  profileContent = profileData != null
+                      ? _buildProfileDetails(profileData)
+                      : _handleMissingProfileData();
+                } else {
+                  profileContent = _handleMissingProfileData();
+                }
 
-          return Stack(
-            children: [
-              profileContent,
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: _buildProfileOptions(),
-              ),
-            ],
-          );
-        },
-      ),
+                return Stack(
+                  children: [
+                    profileContent,
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: _buildProfileOptions(),
+                    ),
+                  ],
+                );
+              },
+            )
+          : _buildLoadingScreen(), // Handle the case where _userStream is null
     );
   }
 
   Widget _handleMissingProfileData() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await FirebaseAuth.instance.signOut();
+      final prefs = await SharedPreferences.getInstance();
+      prefs.setBool('isLoggedIn', false);
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -270,6 +275,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             isDarkTheme: _isDarkTheme,
             onTap: () async {
               await FirebaseAuth.instance.signOut();
+              final prefs = await SharedPreferences.getInstance();
+              prefs.setBool('isLoggedIn', false);
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => const LoginPage()),

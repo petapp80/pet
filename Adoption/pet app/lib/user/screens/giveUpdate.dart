@@ -19,6 +19,8 @@ class _GiveUpdateState extends State<GiveUpdate> {
   final TextEditingController _articleController = TextEditingController();
   final List<Map<String, String>> _articleParts = [];
   File? _selectedImage;
+  bool _isUploading = false;
+  bool _isLoadingImage = false;
 
   Future<void> _pickImage() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -36,9 +38,9 @@ class _GiveUpdateState extends State<GiveUpdate> {
     }
   }
 
-  Future<void> _uploadImage(File image) async {
+  Future<String?> _uploadImage(File image) async {
     final cloudName = 'db3cpgdwm'; // Replace with your Cloudinary cloud name
-    final preset = 'pet_preset'; // Replace with your upload preset
+    final preset = 'article_preset'; // Replace with your upload preset
     final apiKey = '545187993373729'; // Replace with your Cloudinary API key
     final apiSecret =
         'gdgWv-rubTrQTMn6KG0T7-Q5Cfw'; // Replace with your Cloudinary API secret
@@ -66,15 +68,13 @@ class _GiveUpdateState extends State<GiveUpdate> {
       final responseData = await response.stream.bytesToString();
       final jsonResponse = jsonDecode(responseData);
       final imageUrl = jsonResponse['secure_url'];
-      setState(() {
-        _articleParts.add({'type': 'image', 'content': imageUrl});
-      });
-      print('Upload successful: $imageUrl');
+      return imageUrl;
     } else {
       print('Upload failed with status ${response.statusCode}');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to upload image')),
       );
+      return null;
     }
   }
 
@@ -105,17 +105,34 @@ class _GiveUpdateState extends State<GiveUpdate> {
       return;
     }
 
+    setState(() {
+      _isUploading = true;
+    });
+
     // Upload main image
     String? mainImageUrl;
     if (_selectedImage != null) {
-      await _uploadImage(_selectedImage!);
-      mainImageUrl = _articleParts.last['content'];
+      mainImageUrl = await _uploadImage(_selectedImage!);
+      if (mainImageUrl == null) {
+        setState(() {
+          _isUploading = false;
+        });
+        return;
+      }
     }
 
     // Ensure all images in article are local paths before uploading
     for (var part in _articleParts) {
       if (part['type'] == 'image' && !part['content']!.startsWith('http')) {
-        await _uploadImage(File(part['content']!));
+        final imageUrl = await _uploadImage(File(part['content']!));
+        if (imageUrl != null) {
+          part['content'] = imageUrl;
+        } else {
+          setState(() {
+            _isUploading = false;
+          });
+          return;
+        }
       }
     }
 
@@ -139,7 +156,26 @@ class _GiveUpdateState extends State<GiveUpdate> {
       _articleController.clear();
       _articleParts.clear();
       _selectedImage = null;
+      _isUploading = false;
     });
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+    );
+    if (result != null) {
+      setState(() {
+        _isLoadingImage = true;
+      });
+      final imageUrl = await _uploadImage(File(result.files.single.path!));
+      setState(() {
+        _isLoadingImage = false;
+        if (imageUrl != null) {
+          _articleParts.add({'type': 'image', 'content': imageUrl});
+        }
+      });
+    }
   }
 
   @override
@@ -148,142 +184,152 @@ class _GiveUpdateState extends State<GiveUpdate> {
       appBar: AppBar(
         title: const Text('Give Update'),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Title field
-              TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Title',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // Title field
+                  TextField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Title',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-              // Summary field
-              TextField(
-                controller: _summaryController,
-                decoration: const InputDecoration(
-                  labelText: 'Summary',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
+                  // Summary field
+                  TextField(
+                    controller: _summaryController,
+                    decoration: const InputDecoration(
+                      labelText: 'Summary',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
-              // Main image
-              _selectedImage == null
-                  ? ElevatedButton(
-                      onPressed: _pickImage,
-                      child: const Text('Select Main Image'),
-                    )
-                  : Column(
-                      children: [
-                        Image.file(_selectedImage!),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _selectedImage = null;
-                            });
-                          },
-                          child: const Text('Remove Image',
-                              style: TextStyle(color: Colors.red)),
-                        ),
-                        TextButton(
+                  // Main image
+                  _selectedImage == null
+                      ? ElevatedButton(
                           onPressed: _pickImage,
-                          child: const Text('Replace Image',
-                              style: TextStyle(color: Colors.blue)),
+                          child: const Text('Select Main Image'),
+                        )
+                      : Column(
+                          children: [
+                            Image.file(_selectedImage!),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedImage = null;
+                                });
+                              },
+                              child: const Text('Remove Image',
+                                  style: TextStyle(color: Colors.red)),
+                            ),
+                            TextButton(
+                              onPressed: _pickImage,
+                              child: const Text('Replace Image',
+                                  style: TextStyle(color: Colors.blue)),
+                            ),
+                          ],
+                        ),
+
+                  const SizedBox(height: 16),
+
+                  // Article writing section
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _articleParts.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == _articleParts.length) {
+                        return TextField(
+                          controller: _articleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Continue writing...',
+                            border: OutlineInputBorder(),
+                          ),
+                          maxLines: null,
+                        );
+                      }
+
+                      final part = _articleParts[index];
+                      if (part['type'] == 'text') {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Text(
+                            part['content']!,
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        );
+                      } else if (part['type'] == 'image') {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Stack(
+                            children: [
+                              Image.network(part['content']!),
+                              Positioned(
+                                right: 0,
+                                child: IconButton(
+                                  icon: const Icon(Icons.remove_circle,
+                                      color: Colors.red),
+                                  onPressed: () => _removeImage(index),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      children: [
+                        // Add image button
+                        IconButton(
+                          icon: const Icon(Icons.image, color: Colors.blue),
+                          onPressed: _pickAndUploadImage,
+                        ),
+                        // Add text button
+                        IconButton(
+                          icon: const Icon(Icons.add, color: Colors.blue),
+                          onPressed: _addText,
+                        ),
+                        // Publish button
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _publishArticle,
+                            child: const Text('Publish'),
+                          ),
                         ),
                       ],
                     ),
-
-              const SizedBox(height: 16),
-
-              // Article writing section
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _articleParts.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == _articleParts.length) {
-                    return TextField(
-                      controller: _articleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Continue writing...',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: null,
-                    );
-                  }
-
-                  final part = _articleParts[index];
-                  if (part['type'] == 'text') {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: Text(
-                        part['content']!,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    );
-                  } else if (part['type'] == 'image') {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: Stack(
-                        children: [
-                          Image.network(part['content']!),
-                          Positioned(
-                            right: 0,
-                            child: IconButton(
-                              icon: const Icon(Icons.remove_circle,
-                                  color: Colors.red),
-                              onPressed: () => _removeImage(index),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
+                  ),
+                ],
               ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  children: [
-                    // Add image button
-                    IconButton(
-                      icon: const Icon(Icons.image, color: Colors.blue),
-                      onPressed: () async {
-                        FilePickerResult? result =
-                            await FilePicker.platform.pickFiles(
-                          type: FileType.image,
-                        );
-                        if (result != null) {
-                          await _uploadImage(File(result.files.single.path!));
-                        }
-                      },
-                    ),
-                    // Add text button
-                    IconButton(
-                      icon: const Icon(Icons.add, color: Colors.blue),
-                      onPressed: _addText,
-                    ),
-                    // Publish button
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _publishArticle,
-                        child: const Text('Publish'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          if (_isUploading)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          if (_isLoadingImage)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+        ],
       ),
     );
   }

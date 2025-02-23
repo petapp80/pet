@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'detailScreen.dart';
-import 'productsAddScreen.dart';
+import 'chatDetailScreen.dart';
 import 'addScreen.dart';
+import 'productsAddScreen.dart';
 
 class ProductCartScreen extends StatefulWidget {
   const ProductCartScreen({super.key});
@@ -21,8 +22,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
   @override
   void initState() {
     super.initState();
-    final User? user = _auth.currentUser;
-    userId = user?.uid ?? '';
+    userId = _auth.currentUser?.uid ?? '';
   }
 
   Stream<List<Map<String, dynamic>>> getCustomerCartItems() {
@@ -31,130 +31,176 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
         .doc(userId)
         .collection('customers')
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return {
-          'id': data['id'],
-          'customerId': data['customerId'],
-          'status': data['status'],
-          'type': data['type'],
-        };
-      }).toList();
-    });
+        .map((snapshot) => snapshot.docs
+            .map((doc) => doc.data() as Map<String, dynamic>)
+            .toList());
   }
 
   Stream<List<Map<String, dynamic>>> getAllItems() async* {
-    // Fetch pets
-    final petsSnapshot = await FirebaseFirestore.instance
-        .collection('user')
-        .doc(userId)
-        .collection('pets')
-        .get();
+    final fetchCollectionItems = (String collection) async {
+      return FirebaseFirestore.instance
+          .collection('user')
+          .doc(userId)
+          .collection(collection)
+          .get()
+          .then((snapshot) => snapshot.docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return {
+                  'id': doc.id,
+                  'collection': collection,
+                  'data': data,
+                };
+              }).toList());
+    };
 
-    final pets = petsSnapshot.docs.map((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      return {
-        'id': doc.id,
-        'collection': 'pets',
-        'data': data,
-      };
-    }).toList();
-
-    // Fetch products
-    final productsSnapshot = await FirebaseFirestore.instance
-        .collection('user')
-        .doc(userId)
-        .collection('products')
-        .get();
-
-    final products = productsSnapshot.docs.map((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      return {
-        'id': doc.id,
-        'collection': 'products',
-        'data': data,
-      };
-    }).toList();
-
-    // Combine results
-    yield pets + products;
+    yield (await fetchCollectionItems('pets')) +
+        (await fetchCollectionItems('products'));
   }
 
-  Future<Map<String, dynamic>?> getCustomerDetails(String customerId) async {
-    if (customerId.isEmpty) return null;
+  Future<Map<String, dynamic>?> getDocumentData(
+      String collection, String docId) async {
+    if (docId.isEmpty) return null;
     final doc = await FirebaseFirestore.instance
-        .collection('user')
-        .doc(customerId)
+        .collection(collection)
+        .doc(docId)
         .get();
-    if (doc.exists) {
-      return doc.data() as Map<String, dynamic>?;
-    }
-    return null;
-  }
-
-  Future<Map<String, dynamic>?> getItemDetails(String id, String type) async {
-    if (id.isEmpty || type.isEmpty) return null;
-    final collection = type == 'pets' ? 'pets' : 'products';
-    final doc =
-        await FirebaseFirestore.instance.collection(collection).doc(id).get();
-    if (doc.exists) {
-      return doc.data() as Map<String, dynamic>?;
-    }
-    return null;
+    return doc.exists ? doc.data() as Map<String, dynamic>? : null;
   }
 
   Future<void> finalizeStatus(
       String itemId, String customerId, String newStatus) async {
     if (userId.isEmpty || itemId.isEmpty || customerId.isEmpty) return;
     try {
-      // Access all documents in the `customers` collection
       final customersCollection = FirebaseFirestore.instance
           .collection('user')
           .doc(userId)
           .collection('customers');
 
-      // Retrieve all documents and match `customerId` and `id` fields
       final querySnapshot = await customersCollection
           .where('customerId', isEqualTo: customerId)
           .where('id', isEqualTo: itemId)
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
-        // Get the document reference
         final docRef = querySnapshot.docs.first.reference;
-
-        // Update the status in the `customers` collection
         await docRef.update({'status': newStatus});
-        print('Updated status in customers collection for item: $itemId');
-
-        // Access the `CartList` subcollection of the customer
         final cartListDocRef = FirebaseFirestore.instance
             .collection('user')
             .doc(customerId)
             .collection('CartList')
             .doc(itemId);
-
-        // Update the status in the `CartList` subcollection
         await cartListDocRef.update({'status': newStatus});
-        print('Updated status in CartList subcollection for item: $itemId');
+        await checkAndFinalizePaymentStatus(itemId);
 
-        // Show a success message
+        // Refresh state to update the UI
+        setState(() {});
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Item marked as $newStatus'),
             duration: const Duration(seconds: 1),
           ),
         );
-
-        // Refresh the UI
-        setState(() {});
       } else {
-        print(
-            'No matching document found in customers collection for item: $itemId');
+        print('No matching documents found');
       }
     } catch (e) {
       print('Error updating status: $e');
+    }
+  }
+
+  Future<void> checkAndFinalizePaymentStatus(String itemId) async {
+    final paymentsCollection =
+        FirebaseFirestore.instance.collection('Payments');
+
+    final querySnapshot =
+        await paymentsCollection.where('id', isEqualTo: itemId).get();
+
+    if (querySnapshot.docs.isNotEmpty) {
+      final doc = querySnapshot.docs.first;
+      final data = doc.data();
+
+      if (data.containsKey('paymentMethod') && data['paymentMethod'] == 'COD') {
+        await doc.reference.update({'status': 'completed'});
+      }
+    }
+  }
+
+  Future<void> deleteItem(String docId, String collection) async {
+    try {
+      // Delete the pet/product document from user's subcollection
+      await FirebaseFirestore.instance
+          .collection('user')
+          .doc(userId)
+          .collection(collection)
+          .doc(docId)
+          .delete();
+
+      // Delete the same document from the global collection
+      await FirebaseFirestore.instance
+          .collection(collection)
+          .doc(docId)
+          .delete();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Item deleted successfully'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    } catch (e) {
+      print('Error deleting item: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting item: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteFromCloudinary(String publicId) async {
+    // Implement Cloudinary deletion logic here
+    // Example: await cloudinary.api.deleteResources([publicId]);
+  }
+
+  Future<void> handleDeleteItem(String docId, String collection,
+      String? imagePublicId, String? vaccinationPublicId) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Confirmation'),
+          content: const Text('Are you sure you want to delete this item?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete == true) {
+      try {
+        // Delete from Cloudinary
+        if (imagePublicId != null) {
+          await _deleteFromCloudinary(imagePublicId);
+        }
+        if (vaccinationPublicId != null) {
+          await _deleteFromCloudinary(vaccinationPublicId);
+        }
+
+        // Delete the item document
+        await deleteItem(docId, collection);
+      } catch (e) {
+        print('Error deleting item: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting item: $e')),
+        );
+      }
     }
   }
 
@@ -168,7 +214,6 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          // Row with Ongoing, Completed, and All Text inside rounded box
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -183,7 +228,6 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
           Expanded(
             child: isAllSelected
                 ? StreamBuilder<List<Map<String, dynamic>>>(
@@ -272,27 +316,27 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
         final itemType = item['type'];
 
         return FutureBuilder<Map<String, dynamic>?>(
-          future: getCustomerDetails(customerId),
+          future: getDocumentData('user', customerId),
           builder: (context, customerSnapshot) {
             if (customerSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             } else if (customerSnapshot.hasError) {
               return const Center(child: Text('Error fetching customer data'));
-            } else if (!customerSnapshot.hasData ||
-                customerSnapshot.data == null) {
+            } else if (!customerSnapshot.hasData) {
               return const Center(child: Text('Customer data not available'));
             }
 
-                       final customerData = customerSnapshot.data!;
+            final customerData = customerSnapshot.data!;
 
             return FutureBuilder<Map<String, dynamic>?>(
-              future: getItemDetails(itemId, itemType),
+              future: getDocumentData(
+                  itemType == 'pets' ? 'pets' : 'products', itemId),
               builder: (context, itemSnapshot) {
                 if (itemSnapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 } else if (itemSnapshot.hasError) {
                   return const Center(child: Text('Error fetching item data'));
-                } else if (!itemSnapshot.hasData || itemSnapshot.data == null) {
+                } else if (!itemSnapshot.hasData) {
                   return const Center(child: Text('Item data not available'));
                 }
 
@@ -305,24 +349,8 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                     : itemData['description'];
                 final imageUrl = itemData['imageUrl'] ?? '';
 
-                return isOngoingSelected
-                    ? _buildOngoingCard(
-                        item,
-                        customerData,
-                        itemData, // Pass itemData to _buildOngoingCard
-                        title,
-                        description,
-                        imageUrl,
-                        customerId,
-                      )
-                    : _buildCompletedCard(
-                        item,
-                        customerData,
-                        itemData, // Pass itemData to _buildCompletedCard
-                        title,
-                        description,
-                        imageUrl,
-                      );
+                return _buildCard(item, customerData, itemData, title,
+                    description, imageUrl, customerId);
               },
             );
           },
@@ -331,15 +359,17 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
     );
   }
 
-  Widget _buildOngoingCard(
+  Widget _buildCard(
     Map<String, dynamic> item,
     Map<String, dynamic> customerData,
-    Map<String, dynamic> itemData, // Add itemData parameter
+    Map<String, dynamic> itemData,
     String title,
     String description,
     String imageUrl,
     String customerId,
   ) {
+    bool isOngoing = item['status'] == 'ongoing';
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
@@ -410,123 +440,75 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.message_outlined),
+                  icon: const Icon(Icons.remove_red_eye),
                   color: Colors.orange,
                 ),
-                IconButton(
-                  onPressed: () async {
-                    await finalizeStatus(item['id'], customerId, 'completed');
-                  },
-                  icon: const Icon(Icons.check_circle),
-                  color: Colors.green,
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-            child: Row(
-              children: [
-                customerData['profileImage'] != null
-                    ? CircleAvatar(
-                        backgroundImage:
-                            NetworkImage(customerData['profileImage']),
-                      )
-                    : const Icon(Icons.person, color: Colors.teal),
-                const SizedBox(width: 8),
-                Text(
-                  customerData['name'] ?? 'Unknown customer',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompletedCard(
-    Map<String, dynamic> item,
-    Map<String, dynamic> customerData,
-    Map<String, dynamic> itemData, // Add itemData parameter
-    String title,
-    String description,
-    String imageUrl,
-  ) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (imageUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(8)),
-              child: Image.network(
-                imageUrl,
-                height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.broken_image, size: 50),
-              ),
-            )
-          else
-            const Icon(Icons.broken_image, size: 50),
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Text(
-              title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-            child: Text(
-              description,
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DetailScreen(
-                          data: {
-                            'id': item['id'],
-                            'collection': item['type'],
-                            'image': imageUrl,
-                            'text': title,
-                            'description': description,
-                            'location':
-                                itemData['location'] ?? 'Unknown location',
-                            'published':
-                                itemData['published'] ?? 'Unknown time',
-                            'profileImage': customerData['profileImage'] ?? '',
-                            'profileName':
-                                customerData['name'] ?? 'Unknown user',
-                          },
-                          navigationSource: 'ProductCartScreen',
+                if (!isAllSelected)
+                  IconButton(
+                    onPressed: () async {
+                      await FirebaseFirestore.instance
+                          .collection('user')
+                          .doc(customerId)
+                          .collection('ChatAsBuyer')
+                          .doc(userId)
+                          .set({});
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChatDetailScreen(
+                            name: customerData['name'] ?? 'Unknown customer',
+                            image: customerData['profileImage'] ?? '',
+                            navigationSource: 'productsScreen',
+                            userId: customerId,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.message_outlined),
-                  color: Colors.orange,
-                ),
+                      );
+                    },
+                    icon: const Icon(Icons.message),
+                    color: Colors.blue,
+                  ),
+                if (isOngoing)
+                  IconButton(
+                    onPressed: () async {
+                      await finalizeStatus(item['id'], customerId, 'completed');
+                    },
+                    icon: const Icon(Icons.check_circle),
+                    color: Colors.green,
+                  ),
+                if (isAllSelected) ...[
+                  IconButton(
+                    onPressed: () async {
+                      await handleDeleteItem(
+                        item['id'],
+                        item['collection'],
+                        itemData['imagePublicId'],
+                        itemData['vaccinationPublicId'],
+                      );
+                    },
+                    icon: const Icon(Icons.delete),
+                    color: Colors.red,
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => item['type'] == 'pets'
+                              ? AddScreen(
+                                  fromScreen: 'ProductCartScreen',
+                                  docId: item['id'],
+                                )
+                              : ProductsAddScreen(
+                                  fromScreen: 'ProductCartScreen',
+                                  docId: item['id'],
+                                ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.edit),
+                    color: Colors.blue,
+                  ),
+                ]
               ],
             ),
           ),
@@ -567,7 +549,6 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
         final collection = item['collection'];
         final data = item['data'];
 
-        // Access relevant fields based on the collection type
         final title =
             collection == 'pets' ? data['petType'] : data['productName'];
         final description =
@@ -580,7 +561,7 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (imageUrl.isNotEmpty)
                 ClipRRect(
@@ -626,37 +607,21 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => collection == 'pets'
-                                ? AddScreen(
-                                    fromScreen: 'ProductCartScreen',
-                                    docId: item['id'], // Pass document ID
-                                  )
-                                : ProductsAddScreen(
-                                    fromScreen: 'ProductCartScreen',
-                                    docId: item['id'], // Pass document ID
-                                  ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.edit),
-                      color: Colors.blue,
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
                             builder: (context) => DetailScreen(
                               data: {
                                 'id': item['id'],
                                 'collection': item['collection'],
                                 'image': imageUrl,
                                 'text': title ?? 'No title available',
-                                'description': description ?? 'No description available',
-                                'location': data['location'] ?? 'Unknown location',
-                                'published': data['published'] ?? 'Unknown time',
+                                'description':
+                                    description ?? 'No description available',
+                                'location':
+                                    data['location'] ?? 'Unknown location',
+                                'published':
+                                    data['published'] ?? 'Unknown time',
                                 'profileImage': data['profileImage'] ?? '',
-                                'profileName': data['profileName'] ?? 'Unknown user',
+                                'profileName':
+                                    data['profileName'] ?? 'Unknown user',
                                 'userId': data['userId'],
                                 'age': data['age'],
                                 'breed': data['breed'],
@@ -675,6 +640,38 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                       },
                       icon: const Icon(Icons.remove_red_eye),
                       color: Colors.orange,
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => collection == 'pets'
+                                ? AddScreen(
+                                    fromScreen: 'ProductCartScreen',
+                                    docId: item['id'],
+                                  )
+                                : ProductsAddScreen(
+                                    fromScreen: 'ProductCartScreen',
+                                    docId: item['id'],
+                                  ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.edit),
+                      color: Colors.blue,
+                    ),
+                    IconButton(
+                      onPressed: () async {
+                        await handleDeleteItem(
+                          item['id'],
+                          collection,
+                          data['imagePublicId'],
+                          data['vaccinationPublicId'],
+                        );
+                      },
+                      icon: const Icon(Icons.delete),
+                      color: Colors.red,
                     ),
                   ],
                 ),

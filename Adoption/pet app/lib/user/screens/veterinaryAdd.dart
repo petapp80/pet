@@ -7,51 +7,51 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:lottie/lottie.dart';
-import 'dart:async'; // Correct import for Timer
-import 'home.dart'; // Import the HomePage
+import 'dart:async';
+import 'home.dart';
 
 class VeterinaryAddScreen extends StatefulWidget {
   final String fromScreen;
-
   const VeterinaryAddScreen({required this.fromScreen, super.key});
-
   @override
   State<VeterinaryAddScreen> createState() => _VeterinaryAddScreenState();
 }
 
 class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
-  // Controllers for TextFields
-  TextEditingController _nameController = TextEditingController();
-  TextEditingController _locationController = TextEditingController();
-  TextEditingController _experienceController = TextEditingController();
-  TextEditingController _aboutController = TextEditingController();
-  TextEditingController _priceController = TextEditingController();
-  TextEditingController _appointmentsController = TextEditingController();
-
-  // Currency selection
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _experienceController = TextEditingController();
+  final TextEditingController _aboutController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _appointmentsController = TextEditingController();
+  final TextEditingController _placesController = TextEditingController();
   String _selectedCurrency = 'USD';
-
-  // File to store the selected image
   File? _image;
-
-  // URL of the existing image if already uploaded
+  File? _licenseCertificate;
   String? _existingImageUrl;
-
-  // Firestore Document ID for the user's veterinary profile
+  String? _existingLicenseCertificateUrl;
+  String? _existingImagePublicId;
+  String? _existingLicenseCertificatePublicId;
   String? _profileId;
-
-  // Loading state
   bool _isLoading = true;
   bool _approved = false;
+  List<String> _places = [];
 
   @override
   void initState() {
     super.initState();
     _checkExistingProfile();
     _scheduleDailyReset();
+    _placesController.addListener(() {
+      if (_placesController.text.endsWith(',')) {
+        setState(() {
+          _places.add(_placesController.text.trim().replaceAll(',', ''));
+          _placesController.clear();
+        });
+      }
+    });
   }
 
-  // Function to check if the user has already published a profile
   Future<void> _checkExistingProfile() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId != null) {
@@ -60,7 +60,6 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
           .where('userId', isEqualTo: userId)
           .limit(1)
           .get();
-
       if (snapshot.docs.isNotEmpty) {
         final profileData = snapshot.docs.first.data();
         _profileId = snapshot.docs.first.id;
@@ -70,11 +69,16 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
         _aboutController.text = profileData['about'];
         _priceController.text = profileData['price'].toString().split(' ')[1];
         _selectedCurrency = profileData['price'].toString().split(' ')[0];
-        _appointmentsController.text = profileData['appointments'] ?? '';
+        _appointmentsController.text =
+            (profileData['appointments'] ?? '').toString();
+        _places =
+            (profileData['places'] as List<dynamic>?)?.cast<String>() ?? [];
         _existingImageUrl = profileData['imageUrl'];
-        _approved = profileData.containsKey('approved')
-            ? profileData['approved']
-            : false;
+        _existingImagePublicId = profileData['imagePublicId'];
+        _existingLicenseCertificateUrl = profileData['licenseCertificateUrl'];
+        _existingLicenseCertificatePublicId =
+            profileData['licenseCertificatePublicId'];
+        _approved = profileData['approved'] ?? false;
       }
     }
     setState(() {
@@ -82,66 +86,61 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
     });
   }
 
-  // Function to schedule the daily reset task at midnight
   void _scheduleDailyReset() {
     final now = DateTime.now();
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
     final midnight = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
-
     final durationUntilMidnight = midnight.difference(now);
-
-    // Schedule a one-time timer to reset the appointments at midnight
     Timer(durationUntilMidnight, () {
       _resetAppointments();
-      // Schedule a daily reset task
       Timer.periodic(const Duration(days: 1), (timer) {
         _resetAppointments();
       });
     });
   }
 
-  // Function to reset the appointments in Firestore
   Future<void> _resetAppointments() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
-
     final profileDocRef = FirebaseFirestore.instance
         .collection('Veterinary')
         .doc(_profileId ?? userId);
-
-    await profileDocRef.update({
-      'appointments': '0',
-    });
-
+    await profileDocRef.update({'appointments': '0'});
     final userProfileDocRef = FirebaseFirestore.instance
         .collection('user')
         .doc(userId)
         .collection('Veterinary')
         .doc(_profileId ?? userId);
-
-    await userProfileDocRef.update({
-      'appointments': '0',
-    });
-
+    await userProfileDocRef.update({'appointments': '0'});
     print("Appointments reset at midnight");
   }
 
-  // Function to pick an image using FilePicker
   Future<void> _pickImage() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['jpg', 'png', 'heic'],
     );
-
     if (result != null) {
       setState(() {
         _image = File(result.files.single.path!);
-        _existingImageUrl = null; // Reset existing image if a new one is picked
+        _existingImageUrl = null;
       });
     }
   }
 
-  // Function to remove the selected or existing image
+  Future<void> _pickLicenseCertificate() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'png', 'pdf'],
+    );
+    if (result != null) {
+      setState(() {
+        _licenseCertificate = File(result.files.single.path!);
+        _existingLicenseCertificateUrl = null;
+      });
+    }
+  }
+
   void _removeImage() {
     setState(() {
       _image = null;
@@ -149,53 +148,79 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
     });
   }
 
-  // Function to upload the image to Cloudinary
-  Future<Map<String, dynamic>?> _uploadToCloudinary(File imageFile) async {
+  void _removeLicenseCertificate() {
+    setState(() {
+      _licenseCertificate = null;
+      _existingLicenseCertificateUrl = null;
+    });
+  }
+
+  Future<Map<String, dynamic>?> _uploadToCloudinary(
+      File file, String uploadPreset) async {
     try {
       const cloudName = 'db3cpgdwm';
-      const uploadPreset = 'veterinary_preset';
       const apiKey = '545187993373729';
       const apiSecret = 'gdgWv-rubTrQTMn6KG0T7-Q5Cfw';
-
       final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       final folder = 'Veterinary';
       final signature = sha1
           .convert(utf8.encode(
               'folder=$folder&timestamp=$timestamp&upload_preset=$uploadPreset$apiSecret'))
           .toString();
-
       final uri =
           Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload');
       final request = http.MultipartRequest('POST', uri);
-
       request.fields['upload_preset'] = uploadPreset;
       request.fields['api_key'] = apiKey;
       request.fields['timestamp'] = timestamp;
       request.fields['signature'] = signature;
       request.fields['folder'] = folder;
-
-      request.files
-          .add(await http.MultipartFile.fromPath('file', imageFile.path));
-
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
       final response = await request.send();
       final responseData = await response.stream.toBytes();
       final jsonResponse = json.decode(String.fromCharCodes(responseData));
-
       if (response.statusCode == 200) {
         print("Upload successful: $jsonResponse");
         return jsonResponse;
       } else {
-        print("Error uploading image: ${response.statusCode}");
+        print("Error uploading file: ${response.statusCode}");
         print("Response Data: ${String.fromCharCodes(responseData)}");
         return null;
       }
     } catch (e) {
-      print('Error uploading image: $e');
+      print('Error uploading file: $e');
       return null;
     }
   }
 
-  // Function to validate and publish or update the veterinary profile
+  Future<void> _deleteFromCloudinary(String publicId) async {
+    try {
+      const cloudName = 'db3cpgdwm';
+      const apiKey = '545187993373729';
+      const apiSecret = 'gdgWv-rubTrQTMn6KG0T7-Q5Cfw';
+      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final uri =
+          Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/destroy');
+      final request = http.MultipartRequest('POST', uri);
+      final signature = sha1
+          .convert(
+              utf8.encode('public_id=$publicId&timestamp=$timestamp$apiSecret'))
+          .toString();
+      request.fields['api_key'] = apiKey;
+      request.fields['timestamp'] = timestamp;
+      request.fields['signature'] = signature;
+      request.fields['public_id'] = publicId;
+      final response = await request.send();
+      if (response.statusCode == 200) {
+        print("Deletion successful for public_id: $publicId");
+      } else {
+        print("Error deleting file: ${response.statusCode}");
+      }
+    } catch (e) {
+      print('Error deleting file: $e');
+    }
+  }
+
   Future<void> _publishVeterinaryProfile() async {
     if (_nameController.text.isEmpty ||
         _locationController.text.isEmpty ||
@@ -214,35 +239,46 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
               : 'All fields are mandatory! Please fill them all.'),
           actions: <Widget>[
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('OK'),
-            ),
+                onPressed: () => Navigator.of(context).pop(), child: Text('OK'))
           ],
         ),
       );
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
-
       String? imageUrl = _existingImageUrl;
-      String? imagePublicId;
+      String? imagePublicId = _existingImagePublicId;
+      String? licenseCertificateUrl = _existingLicenseCertificateUrl;
+      String? licenseCertificatePublicId = _existingLicenseCertificatePublicId;
 
       // Upload selected image to Cloudinary if a new image is chosen
       if (_image != null) {
-        final uploadResponse = await _uploadToCloudinary(_image!);
+        if (_existingImagePublicId != null) {
+          await _deleteFromCloudinary(_existingImagePublicId!);
+        }
+        final uploadResponse =
+            await _uploadToCloudinary(_image!, 'veterinary_preset');
         if (uploadResponse != null) {
           imageUrl = uploadResponse['secure_url'];
           imagePublicId = uploadResponse['public_id'];
           print("Image uploaded: $imageUrl");
+        }
+      }
+
+      // Upload selected license certificate to Cloudinary if a new one is chosen
+      if (_licenseCertificate != null) {
+        if (_existingLicenseCertificatePublicId != null) {
+          await _deleteFromCloudinary(_existingLicenseCertificatePublicId!);
+        }
+        final uploadResponse = await _uploadToCloudinary(
+            _licenseCertificate!, 'licensecertificate_preset');
+        if (uploadResponse != null) {
+          licenseCertificateUrl = uploadResponse['secure_url'];
+          licenseCertificatePublicId = uploadResponse['public_id'];
+          print("License Certificate uploaded: $licenseCertificateUrl");
         }
       }
 
@@ -255,10 +291,13 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
         'about': _aboutController.text,
         'price': '${_selectedCurrency} ${_priceController.text}',
         'appointments': _appointmentsController.text,
+        'places': _places,
         'imageUrl': imageUrl ?? '',
         'imagePublicId': imagePublicId ?? '',
-        'publishedTime': FieldValue.serverTimestamp(), // Add published time
-        'approved': _approved, // Retain approved field if it exists
+        'licenseCertificateUrl': licenseCertificateUrl ?? '',
+        'licenseCertificatePublicId': licenseCertificatePublicId ?? '',
+        'publishedTime': FieldValue.serverTimestamp(),
+        'approved': _approved,
       };
 
       DocumentReference veterinaryDocRef;
@@ -267,8 +306,7 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
         veterinaryDocRef = await FirebaseFirestore.instance
             .collection('Veterinary')
             .add(vetData);
-        _profileId =
-            veterinaryDocRef.id; // Set profileId to the new document ID
+        _profileId = veterinaryDocRef.id;
       } else {
         // Update existing veterinary profile data in Firestore
         veterinaryDocRef =
@@ -301,10 +339,9 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
       // Navigate to HomePage only if fromScreen is AddItemScreen
       if (widget.fromScreen == 'AddItemScreen') {
         Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => HomePage()),
-          (route) => false,
-        );
+            context,
+            MaterialPageRoute(builder: (context) => HomePage()),
+            (route) => false);
       } else {
         Navigator.pop(context);
       }
@@ -313,11 +350,11 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to Publish Veterinary Profile')),
       );
-    }
 
-    setState(() {
-      _isLoading = false;
-    });
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -343,7 +380,6 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   // Location TextField
                   TextField(
                     controller: _locationController,
@@ -353,7 +389,6 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   // Experience TextField
                   TextField(
                     controller: _experienceController,
@@ -363,7 +398,6 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   // About TextArea
                   TextField(
                     controller: _aboutController,
@@ -374,7 +408,6 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   // Appointments per Day
                   TextField(
                     controller: _appointmentsController,
@@ -389,15 +422,38 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
                         _appointmentsController.text = '30';
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content:
-                                Text('Maximum appointments per day is 30.'),
-                          ),
+                              content:
+                                  Text('Maximum appointments per day is 30.')),
                         );
                       }
                     },
                   ),
                   const SizedBox(height: 16),
-
+                  // Places TextField
+                  TextField(
+                    controller: _placesController,
+                    decoration: InputDecoration(
+                      labelText:
+                          'Places (separate multiple places with commas)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Display places as tags
+                  Wrap(
+                    spacing: 8.0,
+                    children: _places.map((place) {
+                      return Chip(
+                        label: Text(place),
+                        onDeleted: () {
+                          setState(() {
+                            _places.remove(place);
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
                   // Price and Currency Selection
                   Row(
                     children: [
@@ -418,7 +474,6 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
                         }).toList(),
                       ),
                       const SizedBox(width: 16),
-
                       // Price Input Field
                       Expanded(
                         child: TextField(
@@ -433,11 +488,9 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
                   // Image Picker Section
                   Row(
                     children: [
-                      // Button to select an image
                       ElevatedButton(
                         onPressed: _pickImage,
                         child: Text(
@@ -448,19 +501,14 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
                           padding: const EdgeInsets.only(left: 16),
                           child: Stack(
                             children: [
-                              Image.file(
-                                _image!,
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.cover,
-                              ),
+                              Image.file(_image!,
+                                  width: 100, height: 100, fit: BoxFit.cover),
                               Positioned(
                                 right: 0,
                                 top: 0,
                                 child: IconButton(
-                                  icon: Icon(Icons.close, color: Colors.red),
-                                  onPressed: _removeImage,
-                                ),
+                                    icon: Icon(Icons.close, color: Colors.red),
+                                    onPressed: _removeImage),
                               ),
                             ],
                           ),
@@ -470,36 +518,99 @@ class _VeterinaryAddScreenState extends State<VeterinaryAddScreen> {
                           padding: const EdgeInsets.only(left: 16),
                           child: Stack(
                             children: [
-                              Image.network(
-                                _existingImageUrl!,
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.cover,
-                              ),
+                              Image.network(_existingImageUrl!,
+                                  width: 100, height: 100, fit: BoxFit.cover),
                               Positioned(
                                 right: 0,
                                 top: 0,
                                 child: IconButton(
-                                  icon: Icon(Icons.close, color: Colors.red),
-                                  onPressed: _removeImage,
-                                ),
+                                    icon: Icon(Icons.close, color: Colors.red),
+                                    onPressed: _removeImage),
                               ),
                             ],
                           ),
                         ),
-                      ]
+                      ],
                     ],
                   ),
                   const SizedBox(height: 16),
-
+                  // License Certificate Picker Section
+                  ElevatedButton(
+                    onPressed: _pickLicenseCertificate,
+                    child: Text(_licenseCertificate == null
+                        ? 'Pick License Certificate'
+                        : 'Change License Certificate'),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_licenseCertificate != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: Stack(
+                        children: [
+                          _licenseCertificate!.path.endsWith('.jpg') ||
+                                  _licenseCertificate!.path.endsWith('.png') ||
+                                  _licenseCertificate!.path.endsWith('.heic')
+                              ? Image.file(
+                                  _licenseCertificate!,
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                )
+                              : Text(
+                                  _licenseCertificate!.path.split('/').last,
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: IconButton(
+                              icon: Icon(Icons.close, color: Colors.red),
+                              onPressed: _removeLicenseCertificate,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (_existingLicenseCertificateUrl != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: Stack(
+                        children: [
+                          _existingLicenseCertificateUrl!.endsWith('.jpg') ||
+                                  _existingLicenseCertificateUrl!
+                                      .endsWith('.png') ||
+                                  _existingLicenseCertificateUrl!
+                                      .endsWith('.heic')
+                              ? Image.network(
+                                  _existingLicenseCertificateUrl!,
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                )
+                              : Text(
+                                  'Existing License Certificate',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: IconButton(
+                              icon: Icon(Icons.close, color: Colors.red),
+                              onPressed: _removeLicenseCertificate,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
                   // Publish Button
                   ElevatedButton(
                     onPressed: _isLoading ? null : _publishVeterinaryProfile,
                     child: _isLoading
                         ? const CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           )
                         : const Text('Publish'),
                     style: ElevatedButton.styleFrom(

@@ -38,6 +38,10 @@ class _PetEditState extends State<PetEdit> {
   final TextEditingController _sexController = TextEditingController();
   final TextEditingController _userIdController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
+  final TextEditingController _vaccinationPublicIdController =
+      TextEditingController();
+  final TextEditingController _vaccinationUrlController =
+      TextEditingController();
 
   bool nameEditMode = false;
   bool aboutEditMode = false;
@@ -52,6 +56,8 @@ class _PetEditState extends State<PetEdit> {
   bool sexEditMode = false;
   bool userIdEditMode = false;
   bool weightEditMode = false;
+  bool vaccinationPublicIdEditMode = false;
+  bool vaccinationUrlEditMode = false;
 
   @override
   void initState() {
@@ -81,18 +87,21 @@ class _PetEditState extends State<PetEdit> {
   void _initializePetFields(Map<String, dynamic> petData) {
     setState(() {
       _nameController.text = widget.userName;
-      _aboutController.text = petData['about'] ?? 'null';
-      _ageController.text = petData['age'] ?? 'null';
-      _breedController.text = petData['breed'] ?? 'null';
-      _colourController.text = petData['colour'] ?? 'null';
-      _imagePublicIdController.text = petData['imagePublicId'] ?? 'null';
-      _imageUrlController.text = petData['imageUrl'] ?? 'null';
-      _locationController.text = petData['location'] ?? 'null';
-      _petTypeController.text = petData['petType'] ?? 'null';
-      _priceController.text = petData['price'] ?? 'null';
-      _sexController.text = petData['sex'] ?? 'null';
-      _userIdController.text = petData['userId'] ?? 'null';
-      _weightController.text = petData['weight'] ?? 'null';
+      _aboutController.text = petData['about'] ?? '';
+      _ageController.text = petData['age'] ?? '';
+      _breedController.text = petData['breed'] ?? '';
+      _colourController.text = petData['colour'] ?? '';
+      _imagePublicIdController.text = petData['imagePublicId'] ?? '';
+      _imageUrlController.text = petData['imageUrl'] ?? '';
+      _locationController.text = petData['location'] ?? '';
+      _petTypeController.text = petData['petType'] ?? '';
+      _priceController.text = petData['price'] ?? '';
+      _sexController.text = petData['sex'] ?? '';
+      _userIdController.text = petData['userId'] ?? '';
+      _weightController.text = petData['weight'] ?? '';
+      _vaccinationPublicIdController.text =
+          petData['vaccinationPublicId'] ?? '';
+      _vaccinationUrlController.text = petData['vaccinationUrl'] ?? '';
     });
   }
 
@@ -151,28 +160,41 @@ class _PetEditState extends State<PetEdit> {
 
     if (shouldDelete == true) {
       try {
-        // Deleting the pet document
-        await FirebaseFirestore.instance
+        var petDoc = await FirebaseFirestore.instance
             .collection('user')
             .doc(widget.userId)
             .collection('pets')
             .doc(widget.petId)
-            .delete();
+            .get();
 
-        // Deleting the user document
-        await FirebaseFirestore.instance
-            .collection('user')
-            .doc(widget.userId)
-            .delete();
+        if (petDoc.exists) {
+          var petData = petDoc.data();
+          if (petData != null) {
+            // Delete from Cloudinary
+            await _deleteFromCloudinary(petData['imagePublicId']);
+            await _deleteFromCloudinary(petData['vaccinationPublicId']);
 
-        print(
-            'Pet and User documents deleted: ${widget.petId}, ${widget.userId}');
+            // Delete the pet document from user's subcollection
+            await FirebaseFirestore.instance
+                .collection('user')
+                .doc(widget.userId)
+                .collection('pets')
+                .doc(widget.petId)
+                .delete();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pet and User deleted successfully')),
-        );
+            // Delete the pet document from the pets collection
+            await FirebaseFirestore.instance
+                .collection('pets')
+                .doc(widget.petId)
+                .delete();
 
-        Navigator.pop(context, true);
+            print('Pet documents deleted: ${widget.petId}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Pet deleted successfully')),
+            );
+            Navigator.pop(context, true);
+          }
+        }
       } catch (e) {
         print('Error deleting pet: $e');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -180,6 +202,11 @@ class _PetEditState extends State<PetEdit> {
         );
       }
     }
+  }
+
+  Future<void> _deleteFromCloudinary(String publicId) async {
+    // Implement Cloudinary deletion logic here
+    // Example: await cloudinary.api.deleteResources([publicId]);
   }
 
   @override
@@ -390,6 +417,38 @@ class _PetEditState extends State<PetEdit> {
                     });
                   },
                 ),
+                const SizedBox(height: 10),
+                _buildLabelTextField(
+                  label: 'Vaccination Public ID',
+                  controller: _vaccinationPublicIdController,
+                  editMode: vaccinationPublicIdEditMode,
+                  onEditPressed: () {
+                    setState(() {
+                      vaccinationPublicIdEditMode =
+                          !vaccinationPublicIdEditMode;
+                      if (!vaccinationPublicIdEditMode) {
+                        _saveField('vaccinationPublicId',
+                            _vaccinationPublicIdController.text);
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                _buildLabelTextField(
+                  label: 'Vaccination URL',
+                  controller: _vaccinationUrlController,
+                  editMode: vaccinationUrlEditMode,
+                  onEditPressed: () {
+                    setState(() {
+                      vaccinationUrlEditMode = !vaccinationUrlEditMode;
+                      if (!vaccinationUrlEditMode) {
+                        _saveField(
+                            'vaccinationUrl', _vaccinationUrlController.text);
+                      }
+                    });
+                  },
+                  maxLines: 3,
+                ),
               ],
             ),
           ),
@@ -397,45 +456,46 @@ class _PetEditState extends State<PetEdit> {
       ),
     );
   }
+}
 
-  // Method to build label, text field, and edit button
-  Widget _buildLabelTextField({
-    required String label,
-    required TextEditingController controller,
-    required bool editMode,
-    required VoidCallback onEditPressed,
-    int maxLines = 1,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          maxLines: maxLines,
-          enabled: editMode,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+Widget _buildLabelTextField({
+  required String label,
+  required TextEditingController controller,
+  required bool editMode,
+  required VoidCallback onEditPressed,
+  int maxLines = 1,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: controller,
+        maxLines: maxLines,
+        enabled: editMode,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(
+          onPressed: onEditPressed,
+          child: Text(
+            editMode ? 'Save' : 'Edit',
+            style: const TextStyle(color: Colors.blue),
           ),
         ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: onEditPressed,
-            child: Text(
-              editMode ? 'Save' : 'Edit',
-              style: const TextStyle(color: Colors.blue),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 }

@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart'; // Add this import for date formatting
 
 class SalesScreen extends StatefulWidget {
   const SalesScreen({super.key});
@@ -11,11 +12,20 @@ class SalesScreen extends StatefulWidget {
 
 class _SalesScreenState extends State<SalesScreen> {
   String _selectedFilter = 'Today'; // Default filter option
+  DateTime? _selectedDate;
   List<Map<String, dynamic>> _paymentsData = [];
   bool _isLoading = true; // Loading state
 
   List<Map<String, dynamic>> get filteredSales {
     DateTime now = DateTime.now();
+    if (_selectedDate != null) {
+      return _paymentsData
+          .where((sale) =>
+              sale['time'].toDate().day == _selectedDate!.day &&
+              sale['time'].toDate().month == _selectedDate!.month &&
+              sale['time'].toDate().year == _selectedDate!.year)
+          .toList();
+    }
     switch (_selectedFilter) {
       case 'Today':
         return _paymentsData
@@ -85,13 +95,65 @@ class _SalesScreenState extends State<SalesScreen> {
   Future<void> _fetchPaymentsData() async {
     QuerySnapshot snapshot =
         await FirebaseFirestore.instance.collection('Payments').get();
+    List<Map<String, dynamic>> paymentsData = [];
+    for (var doc in snapshot.docs) {
+      var data = doc.data() as Map<String, dynamic>;
+      if (data['paymentMethod'] == 'COD' && data['status'] != 'completed') {
+        continue; // Ignore this document
+      }
+      if (data['type'] == 'pets' || data['type'] == 'products') {
+        var details = await getDocumentDetails(data['id'], data['type']);
+        if (details != null) {
+          data.addAll(details);
+          paymentsData.add(data);
+        }
+      }
+    }
     setState(() {
-      _paymentsData = snapshot.docs
-          .map((doc) => doc.data() as Map<String, dynamic>)
-          .toList();
+      _paymentsData = paymentsData;
       _isLoading = false; // Set loading state to false once data is loaded
     });
     print("Payments Data: $_paymentsData");
+  }
+
+  Future<Map<String, dynamic>?> getDocumentDetails(
+      String id, String type) async {
+    try {
+      DocumentSnapshot doc =
+          await FirebaseFirestore.instance.collection(type).doc(id).get();
+      if (doc.exists) {
+        var data = doc.data() as Map<String, dynamic>;
+        if (type == 'pets') {
+          return {
+            'title': data['petType'],
+            'description': data['about'],
+          };
+        } else if (type == 'products') {
+          return {
+            'title': data['productName'],
+            'description': data['description'],
+          };
+        }
+      }
+    } catch (e) {
+      print('Error fetching document details: $e');
+    }
+    return null;
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _selectedFilter = ''; // Clear filter when a specific date is selected
+      });
+    }
   }
 
   @override
@@ -100,6 +162,12 @@ class _SalesScreenState extends State<SalesScreen> {
       appBar: AppBar(
         centerTitle: true,
         title: const Text('Sales Dashboard'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.calendar_today),
+            onPressed: () => _selectDate(context),
+          ),
+        ],
       ),
       body: _isLoading
           ? Center(
@@ -114,10 +182,13 @@ class _SalesScreenState extends State<SalesScreen> {
                   Row(
                     children: [
                       DropdownButton<String>(
-                        value: _selectedFilter,
+                        value:
+                            _selectedFilter.isEmpty ? 'Today' : _selectedFilter,
                         onChanged: (String? newValue) {
                           setState(() {
                             _selectedFilter = newValue!;
+                            _selectedDate =
+                                null; // Clear selected date when a filter is selected
                           });
                         },
                         items: <String>[
@@ -190,8 +261,9 @@ class _SalesScreenState extends State<SalesScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: ListTile(
-                            title: Text(sale['id']),
-                            subtitle: Text('Sales: \$${sale['amount']}'),
+                            title: Text(sale['title'] ?? 'No title available'),
+                            subtitle: Text(sale['description'] ??
+                                'No description available'),
                             trailing: Text(
                               '${sale['time'].toDate().day}/${sale['time'].toDate().month}/${sale['time'].toDate().year}',
                             ),

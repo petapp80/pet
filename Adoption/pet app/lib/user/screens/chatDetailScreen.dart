@@ -7,10 +7,10 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'package:speech_to_text/speech_to_text.dart'
-    as stt; // Import speech_to_text
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter/services.dart' show rootBundle; // Add this import
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 class ChatDetailScreen extends StatefulWidget {
   final String name;
@@ -38,7 +38,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isSending = false;
 
-  // Variables for speech_to_text
   late stt.SpeechToText _speech;
   bool _isListening = false;
   String _lastWords = '';
@@ -50,7 +49,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _profileImageUrl = widget.image;
     _initializeCollectionName();
     _loadProfileImage();
-    _initializeSpeech(); // Initialize speech setup
+    _initializeSpeech();
   }
 
   Future<void> _requestMicrophonePermission() async {
@@ -67,7 +66,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       } else if (widget.navigationSource == 'VeterinaryScreen') {
         _collectionName = 'ChatAsVeterinary';
       } else {
-        _collectionName = 'ChatAsBuyer'; // Default case
+        _collectionName = 'ChatAsBuyer';
       }
     });
   }
@@ -103,7 +102,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _startListening() async {
-    print('Attempting to start listening...');
     if (!_isListening) {
       bool available = await _speech.initialize(
         onStatus: (val) => print('onStatus: $val'),
@@ -111,26 +109,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       );
       if (available) {
         setState(() => _isListening = true);
-        print('Started listening');
         await _speech.listen(
           onResult: (val) => setState(() {
             _lastWords = val.recognizedWords;
             _messageController.text = _lastWords;
-            print('Recognized words: $_lastWords');
           }),
         );
-      } else {
-        print('Speech recognition not available');
       }
     }
   }
 
   void _stopListening() async {
-    print('Attempting to stop listening...');
     if (_isListening) {
       setState(() => _isListening = false);
       await _speech.stop();
-      print('Stopped listening');
     }
   }
 
@@ -186,7 +178,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         return 'ChatAsVeterinary';
       }
     }
-    return 'ChatAsBuyer'; // Default case if no position is found
+    return 'ChatAsBuyer';
   }
 
   Future<void> _saveMessageToCollection(
@@ -357,7 +349,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       messages.sort((a, b) => int.parse(a['timestamp'])
                           .compareTo(int.parse(b['timestamp'])));
 
-                      // Group messages by date
                       Map<String, List<Map<String, dynamic>>> groupedMessages =
                           {};
                       for (var message in messages) {
@@ -463,13 +454,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     },
                   ),
                 ),
-                // Chatbox with attachment icon and send button
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Row(
                     children: [
                       IconButton(
-                        onPressed: () => _pickFile(context), // Open file picker
+                        onPressed: () => _pickFile(context),
                         icon: Icon(
                           Icons.attach_file,
                           color: isDark ? Colors.grey[400] : Colors.grey[800],
@@ -491,56 +481,56 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               borderRadius: BorderRadius.circular(20.0),
                             ),
                             filled: true,
-                            fillColor: isDark
-                                ? Colors.grey[800]
-                                : Colors.grey[200], // Input background
+                            fillColor:
+                                isDark ? Colors.grey[800] : Colors.grey[200],
                           ),
                         ),
                       ),
                       IconButton(
-                        onPressed: _isListening
-                            ? _stopListening
-                            : _startListening, // Toggle listening
+                        onPressed:
+                            _isListening ? _stopListening : _startListening,
                         icon: Icon(
                           _isListening ? Icons.mic_off : Icons.mic,
                           color: Colors.red,
                         ),
                       ),
-                      IconButton(
-                        onPressed: () async {
-                          final message = _messageController.text.trim();
-                          String? imageUrl;
-                          if (_filePath != null) {
-                            imageUrl =
-                                await _uploadImageToCloudinary(_filePath!);
-                          }
-                          if (message.isNotEmpty || imageUrl != null) {
-                            await _sendMessage(message, imageUrl: imageUrl);
-                          }
-                        },
-                        icon: _isSending
-                            ? const CircularProgressIndicator()
-                            : Icon(
+                      _isSending
+                          ? const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: CircularProgressIndicator(),
+                            )
+                          : IconButton(
+                              onPressed: () async {
+                                final message = _messageController.text.trim();
+                                String? imageUrl;
+                                if (_filePath != null) {
+                                  imageUrl = await _uploadImageToCloudinary(
+                                      _filePath!);
+                                }
+                                if (message.isNotEmpty || imageUrl != null) {
+                                  await _sendMessage(message,
+                                      imageUrl: imageUrl);
+                                }
+                              },
+                              icon: Icon(
                                 Icons.send,
                                 color: theme.colorScheme.primary,
                               ),
-                      ),
+                            ),
                     ],
                   ),
                 ),
-                if (_filePath != null) // Display selected image for sending
+                if (_filePath != null)
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Stack(
                       children: [
-                        // Display the selected image
                         Image.file(
-                          File(_filePath!), // Display the selected image
-                          height: 100, // Adjust as needed
-                          width: 100, // Adjust as needed
+                          File(_filePath!),
+                          height: 100,
+                          width: 100,
                           fit: BoxFit.cover,
                         ),
-                        // Close button to remove the image selection
                         Positioned(
                           right: 0,
                           top: 0,
@@ -550,8 +540,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                               color: Colors.white,
                               size: 20,
                             ),
-                            onPressed:
-                                _clearSelectedImage, // Clear the selected image
+                            onPressed: _clearSelectedImage,
                           ),
                         ),
                       ],

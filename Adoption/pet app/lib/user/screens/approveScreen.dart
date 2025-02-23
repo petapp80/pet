@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'detailScreen.dart';
 
 class ApproveScreen extends StatefulWidget {
   const ApproveScreen({super.key});
@@ -27,43 +29,11 @@ class _ApproveScreenState extends State<ApproveScreen> {
     });
 
     try {
-      // Fetch documents with 'approved' field false
-      final falseApprovedSnapshot = await FirebaseFirestore.instance
-          .collection('user')
-          .where('approved', isEqualTo: false)
-          .get();
-
-      // Fetch all documents in 'user' collection
-      final allUsersSnapshot =
-          await FirebaseFirestore.instance.collection('user').get();
-
-      // Filter documents without 'approved' field
-      final noApprovedFieldDocs = allUsersSnapshot.docs
-          .where((doc) => !doc.data().containsKey('approved'))
-          .toList();
-
-      // Combine both sets of documents
-      final allDocs = falseApprovedSnapshot.docs + noApprovedFieldDocs;
-
-      List<Map<String, dynamic>> data = allDocs
-          .map((doc) => {
-                'id': doc.id, // Store document ID
-                'name': doc.data()['name'] ?? 'No name',
-                'email': doc.data()['email'] ?? 'No email',
-              })
-          .toList();
-
-      setState(() {
-        allDocuments = data;
-        displayedResults = data;
-        isLoading = false; // Stop loading indicator
-      });
-
-      print('Fetched user documents: ${data.length}');
+      await fetchData('Users');
     } catch (e) {
-      print('Error fetching user data: $e');
+      print('Error fetching initial data: $e');
       setState(() {
-        isLoading = false; // Stop loading indicator in case of error
+        isLoading = false;
       });
     }
   }
@@ -74,122 +44,21 @@ class _ApproveScreenState extends State<ApproveScreen> {
     });
 
     try {
-      List<Map<String, dynamic>> data;
+      List<Map<String, dynamic>> data = [];
+      final firestore = FirebaseFirestore.instance;
+
       switch (category) {
         case 'Users':
-          final falseApprovedSnapshot = await FirebaseFirestore.instance
-              .collection('user')
-              .where('approved', isEqualTo: false)
-              .get();
-
-          final allUsersSnapshot =
-              await FirebaseFirestore.instance.collection('user').get();
-
-          final noApprovedFieldDocs = allUsersSnapshot.docs
-              .where((doc) => !doc.data().containsKey('approved'))
-              .toList();
-
-          final allDocs = falseApprovedSnapshot.docs + noApprovedFieldDocs;
-          data = allDocs
-              .map((doc) => {
-                    'id': doc.id, // Store document ID
-                    'name': doc.data()['name'] ?? 'No name',
-                    'email': doc.data()['email'] ?? 'No email',
-                  })
-              .toList();
+          data = await fetchUsers(firestore);
           break;
         case 'Pets':
-          // Fetch documents with 'approved' field false
-          final falseApprovedPetsSnapshot = await FirebaseFirestore.instance
-              .collection('pets')
-              .where('approved', isEqualTo: false)
-              .get();
-
-          // Fetch all documents in 'pets' collection
-          final allPetsSnapshot =
-              await FirebaseFirestore.instance.collection('pets').get();
-
-          // Filter documents without 'approved' field and check for required fields
-          final noApprovedFieldPetsDocs = allPetsSnapshot.docs
-              .where((doc) =>
-                  !doc.data().containsKey('approved') &&
-                  doc.data().containsKey('petType') &&
-                  doc.data().containsKey('about'))
-              .toList();
-
-          // Combine both sets of documents
-          final allPetsDocs =
-              falseApprovedPetsSnapshot.docs + noApprovedFieldPetsDocs;
-
-          data = allPetsDocs
-              .map((doc) => {
-                    'id': doc.id, // Store document ID
-                    'userId': doc.data()['userId'], // Store parent user ID
-                    'petType': doc.data()['petType'] ?? 'No pet type',
-                    'about': doc.data()['about'] ?? 'No about information',
-                  })
-              .toList();
-
-          print('Fetched pet documents: ${data.length}');
-          data.forEach((doc) {
-            print('Fetched pet: ${doc.toString()}');
-          });
+          data = await fetchPets(firestore);
           break;
         case 'Products':
-          final userSnapshot =
-              await FirebaseFirestore.instance.collection('user').get();
-          final productData =
-              await Future.wait(userSnapshot.docs.map((doc) async {
-            final userId = doc.id;
-            final userName = doc.data()['name'];
-            final userEmail = doc.data()['email'];
-            final productsSnapshot =
-                await doc.reference.collection('products').get();
-            return productsSnapshot.docs.map((productDoc) {
-              final product = productDoc.data();
-              return {
-                'id': productDoc.id, // Store document ID
-                'userId': userId, // Store parent user ID
-                'name': userName,
-                'productName': product['productName'] ?? 'No product name',
-                'description': product['description'] ?? 'No description',
-                'location': product['location'] ?? 'No location',
-                'price': product['price'] ?? 'No price',
-                'imagePublicId':
-                    product['imagePublicId'] ?? 'No image public ID',
-                'imageUrl': product['imageUrl'] ?? 'No image URL',
-                'quantity': product['quantity'] ?? 'No quantity',
-                'userEmail': userEmail,
-              };
-            }).toList();
-          }));
-          data = productData
-              .expand((x) => x)
-              .toList()
-              .cast<Map<String, dynamic>>();
+          data = await fetchProducts(firestore);
           break;
         case 'Veterinary':
-          final userSnapshot =
-              await FirebaseFirestore.instance.collection('user').get();
-          final vetData = await Future.wait(userSnapshot.docs.map((doc) async {
-            final userId = doc.id;
-            final userName = doc.data()['name'];
-            final userEmail = doc.data()['email'];
-            final vetSnapshot =
-                await doc.reference.collection('Veterinary').get();
-            return vetSnapshot.docs.map((vetDoc) {
-              final vet = vetDoc.data();
-              return {
-                'id': vetDoc.id, // Store document ID
-                'userId': userId, // Store parent user ID
-                'userName': userName,
-                'userEmail': userEmail,
-                'vetType': vet['vetType'] ?? 'No vet type',
-                'about': vet['about'] ?? 'No about information',
-              };
-            }).toList();
-          }));
-          data = vetData.expand((x) => x).toList().cast<Map<String, dynamic>>();
+          data = await fetchVeterinary(firestore);
           break;
         default:
           data = [];
@@ -197,49 +66,260 @@ class _ApproveScreenState extends State<ApproveScreen> {
       }
 
       setState(() {
-        allDocuments = data;
-        displayedResults = data;
-        isLoading = false; // Stop loading indicator
+        allDocuments = data.where((doc) => doc.isNotEmpty).toList();
+        displayedResults = allDocuments;
+        isLoading = false;
       });
 
-      print('Displayed results: ${displayedResults.length}');
-      displayedResults.forEach((item) {
-        print('Displayed item: ${item.toString()}');
-      });
+      print('Fetched $category documents: ${data.length}');
     } catch (e) {
       print('Error fetching data: $e');
       setState(() {
-        isLoading = false; // Stop loading indicator in case of error
+        isLoading = false;
       });
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchUsers(
+      FirebaseFirestore firestore) async {
+    try {
+      final falseApprovedSnapshot = await firestore
+          .collection('user')
+          .where('approved', isEqualTo: false)
+          .get();
+
+      print('False approved Users: ${falseApprovedSnapshot.docs.length}');
+
+      final allUsersSnapshot = await firestore.collection('user').get();
+
+      final noApprovedFieldDocs = allUsersSnapshot.docs
+          .where((doc) => !doc.data().containsKey('approved'))
+          .toList();
+
+      print('Users with no approved field: ${noApprovedFieldDocs.length}');
+
+      final allDocs = falseApprovedSnapshot.docs + noApprovedFieldDocs;
+      return allDocs
+          .map((doc) => {
+                'id': doc.id,
+                'name': doc.data()?['name'] ?? 'No name',
+                'email': doc.data()?['email'] ?? 'No email',
+                'profileImage': doc.data()?['profileImage'],
+              })
+          .toList();
+    } catch (e) {
+      print('Error fetching users: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchPets(
+      FirebaseFirestore firestore) async {
+    try {
+      final falseApprovedSnapshot = await firestore
+          .collection('pets')
+          .where('approved', isEqualTo: false)
+          .get();
+
+      print('False approved Pets: ${falseApprovedSnapshot.docs.length}');
+
+      final allPetsSnapshot = await firestore.collection('pets').get();
+
+      final noApprovedFieldDocs = allPetsSnapshot.docs
+          .where((doc) => !doc.data().containsKey('approved'))
+          .toList();
+
+      print('Pets with no approved field: ${noApprovedFieldDocs.length}');
+
+      final allDocs = falseApprovedSnapshot.docs + noApprovedFieldDocs;
+      return await Future.wait(
+          allDocs.map<Future<Map<String, dynamic>>>((doc) async {
+        final docData = doc.data() as Map<String, dynamic>?;
+        if (docData == null) {
+          print('Null document data for doc ID: ${doc.id}');
+          return {};
+        }
+        final userId = docData['userId'];
+        final userSnapshot =
+            await firestore.collection('user').doc(userId).get();
+        final userData = userSnapshot.data() as Map<String, dynamic>?;
+
+        if (userData == null) {
+          print('Null user data for user ID: $userId');
+          return {};
+        }
+
+        return {
+          'id': doc.id,
+          'userId': userId,
+          'collection': 'Pets',
+          'name': userData['name'] ?? 'No name',
+          'email': userData['email'] ?? 'No email',
+          'profileImage': userData['profileImage'],
+          'text': docData['petType'] ?? docData['name'] ?? 'Unknown',
+          'description': docData['about'] ?? 'No description',
+          'location': docData['location'] ?? 'Unknown location',
+          'image': docData['imageUrl'] ?? '',
+          'price': docData['price'],
+          'publishedTime':
+              (docData['publishedTime'] as Timestamp?)?.toDate().toString() ??
+                  'Unknown date',
+          'age': docData['age'],
+          'breed': docData['breed'],
+          'colour': docData['colour'],
+          'sex': docData['sex'],
+          'weight': docData['weight'],
+          if (docData.containsKey('vaccinationUrl'))
+            'vaccinationUrl': docData['vaccinationUrl'],
+        };
+      }).toList());
+    } catch (e) {
+      print('Error fetching pets: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchProducts(
+      FirebaseFirestore firestore) async {
+    try {
+      final falseApprovedSnapshot = await firestore
+          .collection('products')
+          .where('approved', isEqualTo: false)
+          .get();
+
+      print('False approved Products: ${falseApprovedSnapshot.docs.length}');
+
+      final allProductsSnapshot = await firestore.collection('products').get();
+
+      final noApprovedFieldDocs = allProductsSnapshot.docs
+          .where((doc) => !doc.data().containsKey('approved'))
+          .toList();
+
+      print('Products with no approved field: ${noApprovedFieldDocs.length}');
+
+      final allDocs = falseApprovedSnapshot.docs + noApprovedFieldDocs;
+      return await Future.wait(
+          allDocs.map<Future<Map<String, dynamic>>>((doc) async {
+        final docData = doc.data() as Map<String, dynamic>?;
+        if (docData == null) {
+          print('Null document data for doc ID: ${doc.id}');
+          return {};
+        }
+        final userId = docData['userId'];
+        final userSnapshot =
+            await firestore.collection('user').doc(userId).get();
+        final userData = userSnapshot.data() as Map<String, dynamic>?;
+
+        if (userData == null) {
+          print('Null user data for user ID: $userId');
+          return {};
+        }
+
+        return {
+          'id': doc.id,
+          'userId': userId,
+          'collection': 'Products',
+          'name': userData['name'] ?? 'No name',
+          'email': userData['email'] ?? 'No email',
+          'profileImage': userData['profileImage'],
+          'text': docData['productName'] ?? 'Unknown',
+          'description': docData['description'] ?? 'No description',
+          'location': docData['location'] ?? 'Unknown location',
+          'image': docData['imageUrl'] ?? '',
+          'price': docData['price'],
+          'publishedTime':
+              (docData['publishedTime'] as Timestamp?)?.toDate().toString() ??
+                  'Unknown date',
+          'quantity': docData['quantity'],
+        };
+      }).toList());
+    } catch (e) {
+      print('Error fetching products: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchVeterinary(
+      FirebaseFirestore firestore) async {
+    try {
+      final falseApprovedSnapshot = await firestore
+          .collection('Veterinary')
+          .where('approved', isEqualTo: false)
+          .get();
+
+      print('False approved Veterinary: ${falseApprovedSnapshot.docs.length}');
+
+      final noApprovedFieldSnapshot = await firestore
+          .collection('Veterinary')
+          .where('approved', isNull: true)
+          .get();
+
+      print(
+          'Veterinary with no approved field: ${noApprovedFieldSnapshot.docs.length}');
+
+      final allDocs = falseApprovedSnapshot.docs + noApprovedFieldSnapshot.docs;
+
+      return await Future.wait(
+          allDocs.map<Future<Map<String, dynamic>>>((doc) async {
+        final docData = doc.data() as Map<String, dynamic>?;
+        if (docData == null) {
+          print('Null document data for doc ID: ${doc.id}');
+          return {};
+        }
+        final userId = docData['userId'];
+        final userSnapshot =
+            await firestore.collection('user').doc(userId).get();
+        final userData = userSnapshot.data() as Map<String, dynamic>?;
+
+        if (userData == null) {
+          print('Null user data for user ID: $userId');
+          return {};
+        }
+
+        return {
+          'id': doc.id,
+          'userId': userId,
+          'collection': 'Veterinary',
+          'name': userData['name'] ?? 'No name',
+          'email': userData['email'] ?? 'No email',
+          'profileImage': userData['profileImage'],
+          'text': docData['name'] ?? 'Unknown',
+          'description': docData['about'] ?? 'No description',
+          'location': docData['location'] ?? 'Unknown location',
+          'image': docData['imageUrl'] ?? '',
+          'price': docData['price'],
+          'publishedTime':
+              (docData['publishedTime'] as Timestamp?)?.toDate().toString() ??
+                  'Unknown date',
+          'experience': docData['experience'],
+          'availability': docData['availability'],
+          if (docData.containsKey('licenseCertificateUrl'))
+            'licenseCertificateUrl': docData['licenseCertificateUrl'],
+        };
+      }).toList());
+    } catch (e) {
+      print('Error fetching Veterinary: $e');
+      return [];
     }
   }
 
   Future<void> approveDocument(String id, String? userId) async {
     try {
+      final firestore = FirebaseFirestore.instance;
+
       if (userId == null) {
-        // Update in 'user' collection
-        await FirebaseFirestore.instance
-            .collection('user')
-            .doc(id)
-            .update({'approved': true});
+        await firestore.collection('user').doc(id).update({'approved': true});
       } else {
-        // Update in user's subcollections
-        final userDocRef =
-            FirebaseFirestore.instance.collection('user').doc(userId);
+        final userDocRef = firestore.collection('user').doc(userId);
 
         if (selectedCategory == 'Pets') {
-          // Update in user's 'pets' subcollection and 'pets' collection
-          await FirebaseFirestore.instance
-              .collection('pets')
-              .doc(id)
-              .update({'approved': true});
+          await firestore.collection('pets').doc(id).update({'approved': true});
           await userDocRef
               .collection('pets')
               .doc(id)
               .update({'approved': true});
         } else if (selectedCategory == 'Products') {
-          // Update in user's 'products' subcollection and 'products' collection
-          await FirebaseFirestore.instance
+          await firestore
               .collection('products')
               .doc(id)
               .update({'approved': true});
@@ -248,8 +328,7 @@ class _ApproveScreenState extends State<ApproveScreen> {
               .doc(id)
               .update({'approved': true});
         } else if (selectedCategory == 'Veterinary') {
-          // Update in user's 'Veterinary' subcollection and 'Veterinary' collection
-          await FirebaseFirestore.instance
+          await firestore
               .collection('Veterinary')
               .doc(id)
               .update({'approved': true});
@@ -260,10 +339,11 @@ class _ApproveScreenState extends State<ApproveScreen> {
         }
       }
 
-      // Remove the approved document from displayed results
       setState(() {
         displayedResults.removeWhere((doc) => doc['id'] == id);
       });
+
+      print('Approved document: $id');
     } catch (e) {
       print('Error approving document: $e');
     }
@@ -331,12 +411,14 @@ class _ApproveScreenState extends State<ApproveScreen> {
                                           ' ' +
                                           doc['description']
                                       : selectedCategory == 'Veterinary'
-                                          ? doc['userName'] + ' ' + doc['about']
+                                          ? doc['name'] + ' ' + doc['about']
                                           : '';
                           return searchField
                               .toLowerCase()
                               .contains(searchQuery.toLowerCase());
                         }).toList();
+                        print('Search query: $searchQuery');
+                        print('Filtered results: ${displayedResults.length}');
                       });
                     },
                     decoration: InputDecoration(
@@ -355,39 +437,210 @@ class _ApproveScreenState extends State<ApproveScreen> {
                             itemCount: displayedResults.length,
                             itemBuilder: (context, index) {
                               final item = displayedResults[index];
-                              String displayText;
+
                               if (selectedCategory == 'Users') {
-                                displayText =
-                                    '${item['name']}, ${item['email']}';
-                              } else if (selectedCategory == 'Pets') {
-                                displayText =
-                                    '${item['petType']}, ${item['about']}';
-                              } else if (selectedCategory == 'Products') {
-                                displayText =
-                                    '${item['productName']}, ${item['description']}';
-                              } else if (selectedCategory == 'Veterinary') {
-                                displayText =
-                                    '${item['userName']}, ${item['userEmail']}';
-                              } else {
-                                displayText = 'No display text';
-                              }
-                              return Card(
-                                elevation: 4,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: ListTile(
-                                  title: Text(displayText),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.check_circle,
-                                        color: Colors.green),
-                                    onPressed: () {
-                                      approveDocument(
-                                          item['id'], item['userId']);
-                                    },
+                                return Card(
+                                  elevation: 4,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                ),
-                              );
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundImage: item['profileImage'] !=
+                                              null
+                                          ? NetworkImage(item['profileImage'])
+                                          : const AssetImage(
+                                              'asset/image/default_profile.png'),
+                                    ),
+                                    title: Text(
+                                        '${item['name']}, ${item['email']}'),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.check_circle,
+                                          color: Colors.green),
+                                      onPressed: () {
+                                        approveDocument(
+                                            item['id'], item['userId']);
+                                      },
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (selectedCategory != 'Users') {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => DetailScreen(
+                                            data: {
+                                              'id': item['id'],
+                                              'collection': selectedCategory,
+                                              'userId': item['userId'],
+                                              'profileName': item['name'],
+                                              'profileImage':
+                                                  item['profileImage'],
+                                              'text': item['text'],
+                                              'description':
+                                                  item['description'],
+                                              'location': item['location'],
+                                              'image': item['image'],
+                                              'price': item['price'],
+                                              'publishedTime':
+                                                  item['publishedTime'],
+                                              if (selectedCategory ==
+                                                  'Veterinary')
+                                                'experience':
+                                                    item['experience'],
+                                              if (selectedCategory ==
+                                                  'Veterinary')
+                                                'availability':
+                                                    item['availability'],
+                                              if (selectedCategory == 'Pets')
+                                                'age': item['age'],
+                                              if (selectedCategory == 'Pets')
+                                                'breed': item['breed'],
+                                              if (selectedCategory == 'Pets')
+                                                'colour': item['colour'],
+                                              if (selectedCategory == 'Pets')
+                                                'sex': item['sex'],
+                                              if (selectedCategory == 'Pets')
+                                                'weight': item['weight'],
+                                              if (selectedCategory ==
+                                                  'Products')
+                                                'quantity': item['quantity'],
+                                              if (selectedCategory ==
+                                                      'Veterinary' &&
+                                                  item.containsKey(
+                                                      'licenseCertificateUrl'))
+                                                'licenseCertificateUrl': item[
+                                                    'licenseCertificateUrl'],
+                                              if (selectedCategory == 'Pets' &&
+                                                  item.containsKey(
+                                                      'vaccinationUrl'))
+                                                'vaccinationUrl':
+                                                    item['vaccinationUrl'],
+                                            },
+                                            navigationSource: 'ApproveScreen',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: Card(
+                                    margin:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      side: const BorderSide(
+                                          color: Colors.blue, width: 2),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius:
+                                              const BorderRadius.vertical(
+                                                  top: Radius.circular(8)),
+                                          child: item['image'] != null &&
+                                                  item['image'].isNotEmpty
+                                              ? Image.network(
+                                                  item['image'],
+                                                  height: 150,
+                                                  width: double.infinity,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                          stackTrace) =>
+                                                      const Icon(
+                                                          Icons.broken_image,
+                                                          size: 50),
+                                                )
+                                              : const Icon(Icons.broken_image,
+                                                  size: 50),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.all(12.0),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  item['text'] ?? 'Unknown',
+                                                  style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (item['profileImage'] != null)
+                                                CircleAvatar(
+                                                  radius: 16,
+                                                  backgroundImage: NetworkImage(
+                                                      item['profileImage']),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12.0),
+                                          child: Text(
+                                            item['description'] ??
+                                                'No description',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                            ),
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12.0),
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                'Published: ${item['publishedTime'] != null ? DateFormat('dd MMM yyyy').format(DateTime.parse(item['publishedTime'])) : 'Unknown date'}',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              const Spacer(),
+                                              IconButton(
+                                                onPressed: () {
+                                                  approveDocument(item['id'],
+                                                      item['userId']);
+                                                },
+                                                icon: const Icon(
+                                                    Icons.check_circle,
+                                                    color: Colors.green),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              left: 12.0, bottom: 12.0),
+                                          child: Row(
+                                            children: [
+                                              const Icon(Icons.location_on,
+                                                  size: 16),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                item['location'] ??
+                                                    'Unknown location',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
                             },
                           ),
                   ),

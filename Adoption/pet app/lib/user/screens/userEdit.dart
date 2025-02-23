@@ -1,5 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:lottie/lottie.dart';
 
 class UserEdit extends StatefulWidget {
   final String name;
@@ -22,6 +26,7 @@ class _UserEditState extends State<UserEdit> {
   bool nameEditMode = false;
   bool positionEditMode = false;
   bool isApproved = false;
+  bool hasChanges = false;
 
   @override
   void initState() {
@@ -29,6 +34,16 @@ class _UserEditState extends State<UserEdit> {
     _nameController.text = widget.name;
     _positionController.text = widget.position;
     _checkApprovalStatus();
+
+    _nameController.addListener(_onTextChanged);
+    _positionController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    setState(() {
+      hasChanges = _nameController.text != widget.name ||
+          _positionController.text != widget.position;
+    });
   }
 
   Future<void> _checkApprovalStatus() async {
@@ -49,6 +64,14 @@ class _UserEditState extends State<UserEdit> {
     } catch (e) {
       print('Error checking approval status: $e');
     }
+  }
+
+  Future<void> _saveChanges() async {
+    await _saveField('name', _nameController.text);
+    await _saveField('position', _positionController.text);
+    setState(() {
+      hasChanges = false;
+    });
   }
 
   // Function to save changes to a specific field
@@ -105,6 +128,21 @@ class _UserEditState extends State<UserEdit> {
     );
 
     if (shouldDelete == true) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Center(
+            child: Lottie.asset(
+              'assets/images/loading.json',
+              width: 100,
+              height: 100,
+              fit: BoxFit.cover,
+            ),
+          );
+        },
+      );
+
       try {
         final querySnapshot = await FirebaseFirestore.instance
             .collection('user')
@@ -113,27 +151,106 @@ class _UserEditState extends State<UserEdit> {
 
         if (querySnapshot.docs.isNotEmpty) {
           final docId = querySnapshot.docs.first.id;
+          final userDoc = querySnapshot.docs.first;
+          final profileImagePublicId =
+              userDoc.data().containsKey('profileImagePublicId')
+                  ? userDoc['profileImagePublicId']
+                  : null;
 
+          // Fetch and delete user's related pets, products, and veterinary records
+          final collections = ['pets', 'products', 'veterinary'];
+          for (var collection in collections) {
+            final querySnapshot = await FirebaseFirestore.instance
+                .collection(collection)
+                .where('userId', isEqualTo: docId)
+                .get();
+            for (var doc in querySnapshot.docs) {
+              final data = doc.data();
+              final imagePublicId = data.containsKey('imagePublicId')
+                  ? data['imagePublicId']
+                  : null;
+              final vaccinationPublicId =
+                  data.containsKey('vaccinationPublicId')
+                      ? data['vaccinationPublicId']
+                      : null;
+              final licenseCertificatePublicId =
+                  data.containsKey('licenseCertificatePublicId')
+                      ? data['licenseCertificatePublicId']
+                      : null;
+
+              if (imagePublicId != null) {
+                await _deleteImageFromCloudinary(imagePublicId);
+              }
+              if (vaccinationPublicId != null) {
+                await _deleteImageFromCloudinary(vaccinationPublicId);
+              }
+              if (licenseCertificatePublicId != null) {
+                await _deleteImageFromCloudinary(licenseCertificatePublicId);
+              }
+              await doc.reference.delete();
+            }
+          }
+
+          // Delete the profile image from Cloudinary if it exists
+          if (profileImagePublicId != null) {
+            await _deleteImageFromCloudinary(profileImagePublicId);
+          }
+
+          // Delete the user's document in Firestore
           await FirebaseFirestore.instance
               .collection('user')
               .doc(docId)
               .delete();
+
+          // Close the loading dialog
+          Navigator.of(context).pop();
+
+          // Return to the previous screen
+          Navigator.pop(context, true);
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('User deleted successfully')),
           );
-
-          Navigator.pop(context, true);
         } else {
+          Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('User not found')),
           );
         }
       } catch (e) {
+        Navigator.of(context).pop();
         print('Error deleting user: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error deleting user: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _deleteImageFromCloudinary(String publicId) async {
+    const cloudName = 'db3cpgdwm';
+    const apiKey = '545187993373729';
+    const apiSecret = 'gdgWv-rubTrQTMn6KG0T7-Q5Cfw';
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final signature = sha1
+        .convert(
+            utf8.encode('public_id=$publicId&timestamp=$timestamp$apiSecret'))
+        .toString();
+
+    final uri =
+        Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/destroy');
+    final response = await http.post(uri, body: {
+      'public_id': publicId,
+      'api_key': apiKey,
+      'timestamp': timestamp,
+      'signature': signature,
+    });
+
+    if (response.statusCode == 200) {
+      print('Image deleted successfully from Cloudinary');
+    } else {
+      print('Error deleting image from Cloudinary: ${response.body}');
     }
   }
 
@@ -211,6 +328,11 @@ class _UserEditState extends State<UserEdit> {
       appBar: AppBar(
         title: const Text('User Edit'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: hasChanges ? _saveChanges : null,
+            tooltip: 'Save',
+          ),
           IconButton(
             icon: const Icon(Icons.delete),
             onPressed: _deleteUser,
