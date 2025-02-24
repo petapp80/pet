@@ -5,6 +5,7 @@ import 'detailScreen.dart';
 import 'chatDetailScreen.dart';
 import 'addScreen.dart';
 import 'productsAddScreen.dart';
+import 'package:intl/intl.dart';
 
 class ProductCartScreen extends StatefulWidget {
   const ProductCartScreen({super.key});
@@ -18,11 +19,26 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
   bool isAllSelected = false;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   late String userId;
+  late String currentUserName;
+  // late String currentUserProfileImage;
 
   @override
   void initState() {
     super.initState();
     userId = _auth.currentUser?.uid ?? '';
+    _fetchCurrentUserDetails();
+  }
+
+  Future<void> _fetchCurrentUserDetails() async {
+    final userDoc =
+        await FirebaseFirestore.instance.collection('user').doc(userId).get();
+    final userData = userDoc.data();
+    if (userData != null) {
+      setState(() {
+        currentUserName = userData['name'] ?? 'Unknown user';
+        // currentUserProfileImage = userData['profileImage'] ?? '';
+      });
+    }
   }
 
   Stream<List<Map<String, dynamic>>> getCustomerCartItems() {
@@ -428,11 +444,13 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                             'description': description,
                             'location':
                                 itemData['location'] ?? 'Unknown location',
-                            'published':
-                                itemData['published'] ?? 'Unknown time',
-                            'profileImage': customerData['profileImage'] ?? '',
-                            'profileName':
-                                customerData['name'] ?? 'Unknown user',
+                            'published': itemData['publishedTime'] != null
+                                ? DateFormat('dd MMMM yyyy').format(
+                                    (itemData['publishedTime'] as Timestamp)
+                                        .toDate())
+                                : 'Unknown',
+                            // 'profileImage': currentUserProfileImage,
+                            'profileName': currentUserName,
                             'userId': itemData['userId'] ?? '',
                           },
                           navigationSource: 'ProductCartScreen',
@@ -617,11 +635,13 @@ class _ProductCartScreenState extends State<ProductCartScreen> {
                                     description ?? 'No description available',
                                 'location':
                                     data['location'] ?? 'Unknown location',
-                                'published':
-                                    data['published'] ?? 'Unknown time',
-                                'profileImage': data['profileImage'] ?? '',
-                                'profileName':
-                                    data['profileName'] ?? 'Unknown user',
+                                'published': data['publishedTime'] != null
+                                    ? DateFormat('dd MMMM yyyy').format(
+                                        (data['publishedTime'] as Timestamp)
+                                            .toDate())
+                                    : 'Unknown',
+                                // 'profileImage': currentUserProfileImage,
+                                'profileName': currentUserName,
                                 'userId': data['userId'],
                                 'age': data['age'],
                                 'breed': data['breed'],

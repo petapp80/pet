@@ -102,7 +102,6 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
-// Continue from previous code
   void _checkAndHandleCOD(
       BuildContext context, Map<String, dynamic> data, String field) async {
     if (data['collection'] == 'Veterinary')
@@ -362,7 +361,6 @@ class _DetailScreenState extends State<DetailScreen> {
       final userSubcollectionRef = FirebaseFirestore.instance
           .collection('user')
           .doc(widget.data['userId'])
-          // Continue from previous code
           .collection(widget.data['collection'])
           .doc(widget.data['id']);
       final userSubcollectionDoc = await userSubcollectionRef.get();
@@ -505,8 +503,7 @@ class _DetailScreenState extends State<DetailScreen> {
     bool isVeterinaryCollection = widget.data['collection'] == 'Veterinary';
     bool isPetsCollection = widget.data['collection'] == 'pets';
     bool isProductsCollection = widget.data['collection'] == 'products';
-    bool showActions = !['ApproveScreen', 'ProductCartScreen']
-        .contains(widget.navigationSource);
+    bool showActions = widget.navigationSource == 'HomePage';
 
     return Scaffold(
       appBar: AppBar(
@@ -605,7 +602,7 @@ class _DetailScreenState extends State<DetailScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Published: ${widget.data['publishedTime']}',
+                      'Published: ${widget.data['published'] ?? 'Unknown'}',
                       style: TextStyle(
                         fontSize: 16,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -641,10 +638,12 @@ class _DetailScreenState extends State<DetailScreen> {
                       children: [
                         const Icon(Icons.location_on, color: Colors.red),
                         const SizedBox(width: 4),
-                        Text(
-                          widget.data['location'] ?? 'Unknown location',
-                          style: const TextStyle(
-                            fontSize: 18,
+                        Expanded(
+                          child: Text(
+                            widget.data['location'] ?? 'Unknown location',
+                            style: const TextStyle(
+                              fontSize: 18,
+                            ),
                           ),
                         ),
                       ],
@@ -692,7 +691,6 @@ class _DetailScreenState extends State<DetailScreen> {
                                     MaterialPageRoute(
                                       builder: (context) => ChatDetailScreen(
                                         name: widget.data['profileName'],
-                                        // Continue from previous code
                                         image: widget.data['profileImage'] !=
                                                     null &&
                                                 widget.data['profileImage']
@@ -805,10 +803,12 @@ class _DetailScreenState extends State<DetailScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          Text(
-            fieldValue.toString(),
-            style: const TextStyle(
-              fontSize: 16,
+          Expanded(
+            child: Text(
+              fieldValue.toString(),
+              style: const TextStyle(
+                fontSize: 16,
+              ),
             ),
           ),
         ],
